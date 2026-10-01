@@ -306,6 +306,11 @@ def redact(d):
     d['root'] = '(redacted)'
 
 
+def render_html(data):
+    # escape '<' so transcript text like '</script>' can't close the embedded JSON block
+    return TEMPLATE.replace('__DATA__', json.dumps(data, separators=(',', ':')).replace('<', '\\u003c'))
+
+
 def install_plugin():
     cmd_dir = Path.home() / '.claude' / 'commands'
     cmd_dir.mkdir(parents=True, exist_ok=True)
@@ -340,9 +345,7 @@ def main():
         sys.exit(f'no analysable sessions under {a.path}')
     if a.redact:
         redact(data)
-    html = TEMPLATE.replace(
-        '__DATA__', json.dumps(data, separators=(',', ':')).replace('<', '\\u003c'))
-    Path(a.out).write_text(html, encoding='utf-8')
+    Path(a.out).write_text(render_html(data), encoding='utf-8')
     print(f'{len(data["sessions"])} sessions, {len(data["tasks"])} tasks from {data["files"]} files -> {a.out}')
     if a.open:
         webbrowser.open(Path(a.out).resolve().as_uri())

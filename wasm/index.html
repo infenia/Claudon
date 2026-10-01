@@ -247,12 +247,8 @@
 
       try {
         const pythonCode = `
-import json, sys
 import claudon
-
-data = claudon.build('/home/pyodide/transcripts')
-html_report = claudon.TEMPLATE.replace('__DATA__', json.dumps(data, separators=(',', ':')).replace('<', '\\u003c'))
-html_report
+claudon.render_html(claudon.build('/home/pyodide/transcripts'))
 `;
         generatedHtml = pyodide.runPython(pythonCode);
 

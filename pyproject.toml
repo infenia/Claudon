@@ -22,12 +22,17 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: User Interfaces",
 ]
 
 [project.urls]
-Homepage = "https://github.com/claudon/claudon"
-Repository = "https://github.com/claudon/claudon"
+Homepage = "https://github.com/infenia/Claudon"
+Repository = "https://github.com/infenia/Claudon"
 
 [project.scripts]
 claudon = "claudon:main"
+
+[tool.setuptools]
+py-modules = ["claudon"]

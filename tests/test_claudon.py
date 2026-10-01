@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 # Add root directory to sys.path
@@ -28,8 +29,8 @@ class TestClaudon(unittest.TestCase):
 
     def test_install_plugin(self):
         fake_home = self.tmp_path / "home"
-        os.environ["HOME"] = str(fake_home)
-        claudon.install_plugin()
+        with mock.patch.dict(os.environ, {"HOME": str(fake_home), "USERPROFILE": str(fake_home)}):
+            claudon.install_plugin()
         cmd_file = fake_home / ".claude" / "commands" / "claudon.md"
         self.assertTrue(cmd_file.exists())
         self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
@@ -65,6 +66,12 @@ class TestClaudon(unittest.TestCase):
         # Test redact
         claudon.redact(data)
         self.assertEqual(data["root"], "(redacted)")
+
+    def test_render_html_escapes_script_close(self):
+        data = {"tasks": [{"prompt": "fix </script><img src=x onerror=alert(1)>"}]}
+        html = claudon.render_html(data)
+        payload = html.split('<script id="d" type="application/json">', 1)[1].split("</script>", 1)[0]
+        self.assertEqual(json.loads(payload), data)
 
 
 if __name__ == "__main__":

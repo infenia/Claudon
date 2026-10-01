@@ -36,13 +36,13 @@ bunx claudon
 
 ### Standalone Shell Script
 ```bash
-curl -fsSL https://raw.githubusercontent.com/claudon/claudon/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/infenia/Claudon/main/install.sh | sh
 ```
 
 ### Direct Clone
 ```bash
-git clone https://github.com/claudon/claudon.git
-cd claudon
+git clone https://github.com/infenia/Claudon.git
+cd Claudon
 python3 claudon.py ~/.claude -o report.html --open
 ```
 

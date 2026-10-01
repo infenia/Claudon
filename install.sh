@@ -10,7 +10,7 @@ if [ -f "${SCRIPT_DIR}/claudon.py" ]; then
     echo "Installing Claudon from local source..."
     cp "${SCRIPT_DIR}/claudon.py" "${INSTALL_DIR}/claudon"
 else
-    DOWNLOAD_URL="https://raw.githubusercontent.com/claudon/claudon/main/claudon.py"
+    DOWNLOAD_URL="https://raw.githubusercontent.com/infenia/Claudon/main/claudon.py"
     echo "Downloading Claudon..."
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "${DOWNLOAD_URL}" -o "${INSTALL_DIR}/claudon"

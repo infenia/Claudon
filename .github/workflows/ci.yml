@@ -14,13 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install dependencies & Playwright
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          playwright install chromium --with-deps
       - name: Run Python unit tests
         run: python -m unittest discover tests
 
@@ -28,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [18, 20, 22, 24]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js ${{ matrix.node-version }}
@@ -37,3 +42,35 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: Test Node launcher
         run: npm test
+
+  # Install the packages exactly as users get them, so a broken wheel or npm tarball fails CI.
+  smoke-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and install wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+      - name: Run installed wheel on a sample transcript
+        run: |
+          mkdir -p /tmp/t
+          printf '%s\n' \
+            '{"timestamp":"2026-01-01T12:00:00Z","type":"user","message":{"content":"hi"}}' \
+            '{"timestamp":"2026-01-01T12:00:05Z","type":"assistant","message":{"id":"m1","model":"claude-sonnet-5-5","usage":{"input_tokens":10,"output_tokens":5},"content":[]}}' \
+            > /tmp/t/s.jsonl
+          cd /tmp && /tmp/venv/bin/claudon /tmp/t/s.jsonl -o /tmp/report.html
+          grep -q '"prompt":"hi"' /tmp/report.html
+      - name: Pack and run npm package
+        run: |
+          npm pack
+          npm install -g ./claudon-*.tgz
+          cd /tmp && claudon --help
