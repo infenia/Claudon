@@ -126,7 +126,7 @@ Versions are immutable, so roll forward:
   repository `claudon`, workflow `release.yml`, environment `pypi`. No PyPI API token is needed.
 - **GitHub environment** `pypi`: create it under *Settings → Environments* and add required reviewers; this is the
   manual approval gate for every PyPI publish.
-- **npm**: add an automation token as the `NPM_TOKEN` repository secret.
+- **npm**: publish `@infenia/claudon` once by hand (`npm publish --access public`), then add a Trusted Publisher in the package settings (owner `infenia`, repo `claudon`, workflow `release.yml`, no environment). No token or secret is used.
 - **macOS signing (optional)**: without these secrets the macOS binaries are built unsigned. With an Apple Developer
   account add `MACOS_CERT_P12` (base64 of the *Developer ID Application* `.p12`), `MACOS_CERT_PASSWORD`,
   `MACOS_SIGN_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD`; the workflow then signs and notarizes.
