@@ -1,0 +1,32 @@
+{
+  "name": "claudon",
+  "version": "0.1.0",
+  "description": "Interactive session analytics & HTML dashboard for Claude Code",
+  "main": "bin/claudon.js",
+  "bin": {
+    "claudon": "bin/claudon.js"
+  },
+  "files": [
+    "bin/",
+    "claudon.py",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node bin/claudon.js --help"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "analytics", "dashboard",
+    "anthropic",
+    "llm",
+    "npx",
+    "bunx"
+  ],
+  "author": "Claudon Contributors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
