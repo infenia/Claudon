@@ -491,7 +491,7 @@ def install_plugin(force=False):
         "---\n"
         "description: Generate and open interactive Claudon analytics dashboard for Claude Code sessions\n"
         "---\n\n"
-        "Run `claudon -o cc_report.html --open` (or `npx claudon -o cc_report.html --open`) to analyze sessions.\n"
+        "Run `claudon -o cc_report.html --open` (or `npx @infenia/claudon -o cc_report.html --open`) to analyze sessions.\n"
     )
     if plugin_file.exists():
         if plugin_file.read_text(encoding='utf-8') == plugin_content:

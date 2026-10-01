@@ -59,7 +59,7 @@ a commit body that lands on `main`.
 3. **Merge it** (squash). The `Release Please` workflow tags `vX.Y.Z`, creates the GitHub Release, and dispatches
    `release.yml` (`npm_tag=latest`, or `beta` for a tag containing `-`) and `nuitka-build.yml` on the tag.
 4. **Approve the PyPI publish** when the `pypi` environment asks for it (*Actions → the run → Review deployments*).
-5. **Verify**: `uvx claudon@X.Y.Z --version`, `npx claudon@X.Y.Z --version`, and the Release has binaries + `SHA256SUMS`.
+5. **Verify**: `uvx claudon@X.Y.Z --version`, `npx @infenia/claudon@X.Y.Z --version`, and the Release has binaries + `SHA256SUMS`.
 
 Both publish workflows still require a tag ref, re-check the tag against the package versions, and run the full CI
 suite first. Nothing publishes from a branch.
@@ -77,7 +77,7 @@ Remove those keys (via another PR) to graduate to a stable release. Testers opt 
 
 ```bash
 uvx --prerelease allow claudon      # or: uvx claudon@0.2.0b1, pip install --pre claudon
-npx claudon@beta                    # or: bunx claudon@beta
+npx @infenia/claudon@beta                    # or: bunx @infenia/claudon@beta
 ```
 
 ### Hotfix
@@ -110,7 +110,7 @@ merge, `git tag vX.Y.Z && git push origin vX.Y.Z`, then dispatch as above.
 Versions are immutable, so roll forward:
 
 - Ship a `fix:` release. Never reuse or retag a version.
-- npm: `npm deprecate claudon@X.Y.Z "reason, use X.Y.Z+1"`; PyPI: *Manage → Yank release*.
+- npm: `npm deprecate @infenia/claudon@X.Y.Z "reason, use X.Y.Z+1"`; PyPI: *Manage → Yank release*.
 - Edit the GitHub Release to mark it as broken, or delete the binary assets if they are unsafe.
 
 ---
