@@ -1,0 +1,41 @@
+{
+  "name": "claudon",
+  "version": "0.1.0",
+  "description": "Interactive session analytics & HTML dashboard for Claude Code",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/infenia/claudon.git"
+  },
+  "homepage": "https://github.com/infenia/claudon#readme",
+  "bugs": {
+    "url": "https://github.com/infenia/claudon/issues"
+  },
+  "main": "bin/claudon.js",
+  "bin": {
+    "claudon": "bin/claudon.js"
+  },
+  "files": [
+    "bin/",
+    "claudon.py",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node bin/claudon.js --help"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "analytics",
+    "dashboard",
+    "anthropic",
+    "llm",
+    "npx",
+    "bunx"
+  ],
+  "author": "Infenia Private Limited",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  }
+}

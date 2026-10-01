@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_call:                    # release workflows run the full suite before publishing
+
+permissions:
+  contents: read
+
+concurrency:
+  # github.workflow is the caller's name under workflow_call, so release runs never share a group with push CI
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Ruff
+        run: pipx run ruff==0.16.9 check .
+      - name: Versions agree (claudon.py, package.json)
+        run: python scripts/check_version.py
+
+  test-python:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        include:
+          - { os: windows-latest, python-version: "3.13" }
+          - { os: macos-latest, python-version: "3.13" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies & Playwright
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          playwright install chromium --with-deps
+      - name: Run Python unit tests
+        run: python -m unittest discover tests
+
+  test-node:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [22, 24, 26]
+        include:
+          - { os: windows-latest, node-version: 24 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Test Node launcher
+        run: npm test
+
+  # Install the packages exactly as users get them, so a broken wheel or npm tarball fails CI.
+  smoke-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Build and install wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+      - name: Run installed wheel on a sample transcript
+        run: |
+          mkdir -p /tmp/t
+          printf '%s\n' \
+            '{"timestamp":"2026-01-01T12:00:00Z","type":"user","message":{"content":"hi"}}' \
+            '{"timestamp":"2026-01-01T12:00:05Z","type":"assistant","message":{"id":"m1","model":"claude-sonnet-5-5","usage":{"input_tokens":10,"output_tokens":5},"content":[]}}' \
+            > /tmp/t/s.jsonl
+          cd /tmp && /tmp/venv/bin/claudon /tmp/t/s.jsonl -o /tmp/report.html
+          grep -q '"prompt":"hi"' /tmp/report.html
+      - name: Pack and run npm package
+        run: |
+          npm pack
+          npm install -g ./claudon-*.tgz
+          cd /tmp && claudon --help

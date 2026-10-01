@@ -1,0 +1,152 @@
+name: Build & Release Standalone Binaries
+
+# Dispatch on the release tag, never a branch:
+#   gh workflow run nuitka-build.yml --ref vX.Y.Z
+# Tags containing '-' (e.g. v0.2.0-beta.1) are published as GitHub prereleases.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: binaries-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a tag ref
+        if: github.ref_type != 'tag'
+        run: |
+          echo "::error::Run this workflow on a release tag: gh workflow run nuitka-build.yml --ref vX.Y.Z"
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Tag matches claudon.__version__ and package.json
+        env:
+          REF: ${{ github.ref_name }}          # via env, never interpolated into the script
+        run: python scripts/check_version.py "$REF"
+
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build ${{ matrix.asset }}
+    needs: [preflight, ci]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-22.04, asset: claudon-linux-x86_64 }        # oldest supported image = widest glibc compatibility
+          - { os: macos-26, asset: claudon-macos-arm64 }
+          - { os: macos-26-intel, asset: claudon-macos-x86_64 }
+          - { os: windows-latest, asset: claudon-windows-x86_64.exe }
+    env:
+      # macOS signing + notarization run only when these secrets exist (secrets can't be tested in `if:` directly)
+      # (MACOS_CERT_PASSWORD may be empty for a password-less .p12)
+      HAS_MACOS_SIGNING: >-
+        ${{ secrets.MACOS_CERT_P12 != '' && secrets.MACOS_SIGN_IDENTITY != '' && secrets.APPLE_ID != ''
+            && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install Nuitka
+        run: python -m pip install nuitka==4.2.2 zstandard==0.25.0
+      - name: Import Developer ID certificate
+        if: runner.os == 'macOS' && env.HAS_MACOS_SIGNING == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}            # base64 of the Developer ID Application .p12
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          kpass="$(uuidgen)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$kpass" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$kpass" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$kpass" "$keychain"
+          existing="$(security list-keychains -d user | tr -d '"')"      # one path per line, no spaces on runners
+          # shellcheck disable=SC2086
+          security list-keychains -d user -s "$keychain" $existing
+          rm "$RUNNER_TEMP/cert.p12"
+      - name: Build standalone executable with Nuitka
+        shell: bash
+        env:
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}  # e.g. "Developer ID Application: Infenia (TEAMID)"
+        run: |
+          sign=()
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            if [ "$HAS_MACOS_SIGNING" = "true" ]; then
+              sign=(--macos-sign-identity="$MACOS_SIGN_IDENTITY" --macos-sign-notarization)
+            else
+              echo "::notice::macOS signing secrets not all set: building an unsigned macOS binary"
+            fi
+          fi
+          python scripts/build_nuitka.py --onefile --output-dir dist "${sign[@]}"
+      - name: Notarize macOS binary
+        if: runner.os == 'macOS' && env.HAS_MACOS_SIGNING == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}     # app-specific password
+        run: |
+          codesign --verify --strict --verbose=2 dist/claudon.bin
+          ditto -c -k dist/claudon.bin "$RUNNER_TEMP/claudon.zip"
+          # bare Mach-O binaries can't be stapled; Gatekeeper looks the ticket up online
+          xcrun notarytool submit "$RUNNER_TEMP/claudon.zip" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+      - name: Remove signing keychain
+        if: always() && runner.os == 'macOS' && env.HAS_MACOS_SIGNING == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+      - name: Smoke test and stage binary
+        shell: bash
+        run: |
+          src=dist/claudon.bin
+          if [ "$RUNNER_OS" = "Windows" ]; then src=dist/claudon.exe; fi
+          "./$src" --version
+          mkdir -p release_assets
+          cp "$src" "release_assets/${{ matrix.asset }}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.asset }}
+          path: release_assets/
+          if-no-files-found: error
+
+  # One job publishes, after every platform built: no racing release creation,
+  # and the write-scoped token never reaches the build steps.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: src
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: release_assets
+          merge-multiple: true
+      - name: Add claudon.py (pinned installs via install.sh) and checksums
+        run: |
+          cp src/claudon.py release_assets/
+          cd release_assets && sha256sum claudon* > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release_assets/claudon*
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release_assets/*
+          fail_on_unmatched_files: true

@@ -1,0 +1,18 @@
+name: Bug report
+description: Something is wrong or crashes
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: "Include expected vs. actual behaviour and any traceback." }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes: { label: Steps to reproduce, description: "Command used. Do not attach real transcripts; use --redact or a synthetic one." }
+  - type: input
+    id: version
+    attributes: { label: "`claudon --version`" }
+    validations: { required: true }
+  - type: input
+    id: env
+    attributes: { label: "OS / install method", placeholder: "Ubuntu 24.04, uvx" }

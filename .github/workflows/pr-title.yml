@@ -1,0 +1,22 @@
+name: PR title
+
+# Squash merges use the PR title as the commit message, and release-please reads it to pick the version bump.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  conventional-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Title follows Conventional Commits
+        env:
+          TITLE: ${{ github.event.pull_request.title }}    # via env, never interpolated into the script
+        run: |
+          re='^(feat|fix|perf|deps|docs|chore|ci|test|refactor|build|style|revert)(\([a-z0-9._/-]+\))?!?: .+'
+          if ! printf '%s' "$TITLE" | grep -Eq "$re"; then
+            echo "::error::PR title must look like 'feat: add X', 'fix(parser): handle Y' or 'feat!: breaking change' (got: $TITLE)"
+            exit 1
+          fi
