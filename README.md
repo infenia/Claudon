@@ -52,13 +52,19 @@ Run Claudon entirely in your browser without local Python installed:
 2. Drag and drop or browse your Claude Code `.jsonl` transcript files.
 3. Generate and view the interactive report directly inside your browser.
 
-### 🛠️ Native Compilation (Nuitka)
-To compile Claudon into a single native binary:
+### 🛠️ Native Compilation (Nuitka) & Semantic Releases
+To compile Claudon into a single native binary locally:
 ```bash
 pip install nuitka zstandard
 python scripts/build_nuitka.py --onefile
 ```
-Standalone executables are output to `dist/`. Pre-built native binaries for Linux, macOS, and Windows are also automatically generated via GitHub Actions CI workflows.
+Standalone executables are output to `dist/`.
+
+#### 📦 Release & Distribution Channels
+Claudon follows **Semantic Versioning** (`v*.*.*`). Pushing a release tag automatically triggers automated CI workflows that publish:
+- **Nuitka Binaries**: Compiled standalone executables for Linux, macOS, and Windows attached to GitHub Releases.
+- **PyPI Package**: Published to PyPI for instant execution via `uvx claudon`, `pipx run claudon`, or `pip install claudon`.
+- **npm Package**: Published to npm registry for instant execution via `npx claudon` or `bunx claudon`.
 
 ---
 
