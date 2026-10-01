@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/infenia/claudon/compare/v0.2.0...v0.2.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **ci:** drop component prefix from release tags ([#15](https://github.com/infenia/claudon/issues/15)) ([9742ed0](https://github.com/infenia/claudon/commit/9742ed085136a01760290ba68c67256bfde096a9))
+* publish npm package as @infenia/claudon ([#17](https://github.com/infenia/claudon/issues/17)) ([7f6ce7b](https://github.com/infenia/claudon/commit/7f6ce7b53db8ba1aa40161dcd7450b444ca4d71a))
+
 ## [0.2.0](https://github.com/infenia/claudon/compare/claudon-v0.1.0...claudon-v0.2.0) (2026-10-01)
 
 
