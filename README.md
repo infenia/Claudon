@@ -1,6 +1,11 @@
+<div align="center">
+
 # Claudon 📊
 
-> Interactive session analytics and HTML dashboard for **Claude Code**.
+**See where your Claude Code time and money actually go.**
+
+One command turns your session logs into an interactive HTML dashboard.<br>
+100% local · zero dependencies · nothing leaves your machine.
 
 [![CI](https://github.com/infenia/claudon/actions/workflows/ci.yml/badge.svg)](https://github.com/infenia/claudon/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/claudon)](https://pypi.org/project/claudon/)
@@ -8,37 +13,56 @@
 [![Python](https://img.shields.io/pypi/pyversions/claudon)](https://pypi.org/project/claudon/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Claudon** turns your Claude Code session logs (`.jsonl`) into a single, self-contained interactive HTML dashboard. Gain full visibility into turn duration, wall time breakdown (model vs. tools vs. idle), tool call failures, thinking tokens & time, cost estimates, and auto-detected performance bottlenecks.
+```bash
+uvx claudon --open
+```
 
-Runs 100% locally with zero dependencies (Python 3.11+ stdlib only). Your private logs and code never leave your machine.
+<img src="docs/assets/overview.png" alt="Claudon dashboard overview: tasks, wall time, cost, time breakdown and per-project cost" width="860">
+
+<sub>Demo data. Your own sessions stay on your machine.</sub>
+
+</div>
 
 ---
 
-## 🚀 Quick Start (Run Anywhere)
+## Why Claudon?
 
-You can run **Claudon** instantly through your favorite package manager or launcher:
+Claude Code is fast until it isn't. Which turn burned ten minutes? Was it the model, a slow tool, or you being away? Did that failing tool call loop? What did the session really cost? Your answers are already in `~/.claude`; Claudon reads them and shows you:
 
-### Python (`uvx`, `pipx`, `pip`)
+- **Where time went**: model vs. tools vs. permission waits vs. idle, per task, turn and subagent.
+- **What it cost**: token usage × list prices per model generation (override with `--pricing`).
+- **What went wrong**: automatic detection of tool failures, slow turns and retry loops.
+- **How hard it thought**: thinking time vs. thinking tokens.
+- **Safe to share**: `--redact` strips prompts, paths, commands and project names.
+
+It is a single Python file using only the standard library. No telemetry, no network, no account.
+
+---
+
+## 🚀 Quick Start
+
+Use whichever runner you already have; each downloads and runs the latest release on demand:
+
+| Tool | Run once | Install globally |
+|---|---|---|
+| **uv** | `uvx claudon` | `uv tool install claudon` |
+| **pipx** | `pipx run claudon` | `pipx install claudon` |
+| **pip** | | `pip install claudon` |
+| **npm** | `npx claudon` | `npm install -g claudon` |
+| **pnpm** | `pnpm dlx claudon` | `pnpm add -g claudon` |
+| **Yarn** (2+) | `yarn dlx claudon` | |
+| **Bun** | `bunx claudon` | `bun add -g claudon` |
+| **Shell script** | | [`install.sh`](#standalone-shell-script) |
+| **Browser** | [WebAssembly page](#-webassembly-in-browser--zero-python) | no install |
+
 ```bash
-# Instant run via uv (recommended)
-uvx claudon
-
-# Instant run via pipx
-pipx run claudon
-
-# Or install via pip
-pip install claudon
-claudon ~/.claude -o report.html --open
+claudon ~/.claude -o report.html --open      # after a global install
 ```
 
-### Node.js / JavaScript (`npx`, `bunx`)
-```bash
-# Instant run via npx
-npx claudon
-
-# Instant run via bunx
-bunx claudon
-```
+> The npm-family packages (npx, pnpm, yarn, bun) are a thin launcher around the same Python script, so they need
+> **Python 3.11+** on your `PATH` (`python3`, `python` or `py`). No Python at all? Use the browser version or a
+> standalone binary from [GitHub Releases](https://github.com/infenia/claudon/releases).
+> Use `@beta` / `uvx --prerelease allow` for pre-releases.
 
 ### Standalone Shell Script
 ```bash
@@ -69,7 +93,7 @@ download the Pyodide runtime (jsDelivr) and `claudon.py`, and once it shows *Rea
 Edge ask to let the page *view* the folder. Browsers without that folder API (Firefox, Safari) show their own
 "upload" prompt for folder pickers, which only grants the page read access.
 
-### 🛠️ Native Compilation (Nuitka) & Semantic Releases
+### 🛠️ Native Binary (Nuitka)
 To compile Claudon into a single native binary locally:
 ```bash
 pip install nuitka==4.2.2 zstandard
@@ -77,11 +101,11 @@ python scripts/build_nuitka.py --onefile
 ```
 Standalone executables are output to `dist/`.
 
-#### 📦 Release & Distribution Channels
+### 📦 Releases
 Claudon follows **Semantic Versioning** and is released through an automated, reviewable pipeline: Conventional Commit PR titles drive an auto-generated release PR (version bump + [CHANGELOG](CHANGELOG.md)); merging it tags the release and publishes:
 - **Nuitka Binaries**: Linux x86_64, macOS (arm64 and Intel) and Windows, attached to GitHub Releases with `SHA256SUMS` and build provenance attestations (`gh attestation verify <file> -R infenia/claudon`).
-- **PyPI**: `uvx claudon`, `pipx run claudon` or `pip install claudon` (trusted publishing).
-- **npm**: `npx claudon` or `bunx claudon` (with provenance).
+- **PyPI**: `uvx`, `pipx` or `pip` (trusted publishing).
+- **npm**: `npx`, `pnpm dlx`, `yarn dlx` or `bunx` (with provenance).
 
 Want pre-release builds? `uvx --prerelease allow claudon` or `npx claudon@beta`. Full process: [docs/RELEASING.md](docs/RELEASING.md).
 
@@ -121,13 +145,12 @@ claudon [PATH] [-o FILE] [--redact] [--pricing FILE] [--open] [--install-plugin 
 
 ## 📊 What's in the Report?
 
-- **Task Breakdown**: Individual human prompts to final completion.
-- **Turns & Subagents**: Model API calls vs agent delegation.
-- **Time Analysis**: Model latency, tool execution, user permission waits, idle silence.
-- **Thinking Metrics**: Thinking time vs thinking tokens.
-- **Cost Estimation**: Estimated from token usage × Anthropic list prices per model generation (override with `--pricing`).
-- **Bottlenecks**: Automatic detection of tool failures, slow turns, and loops.
-- **Privacy First**: Fully local parsing and HTML generation; `--redact` option for public sharing.
+- **Task Breakdown**: each human prompt through to completion.
+- **Turns & Subagents**: model API calls vs. agent delegation.
+- **Time, Thinking & Cost**: the breakdowns described [above](#why-claudon).
+- **Bottlenecks**: failures, slow turns and loops, surfaced automatically.
+
+The report is one self-contained `.html` file: no server, no external assets, easy to attach to an issue (use `--redact`).
 
 ---
 
