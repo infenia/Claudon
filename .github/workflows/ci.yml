@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Ruff
-        run: pipx run ruff check .
+        run: pipx run ruff==0.16.9 check .
       - name: Versions agree (claudon.py, package.json)
         run: python scripts/check_version.py
 
