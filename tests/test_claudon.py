@@ -12,12 +12,74 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import claudon
 
 
+def user(ts, text):
+    return {"timestamp": f"2026-01-01T12:00:{ts:02d}Z", "type": "user", "message": {"content": text}}
+
+
+def assistant(ts, mid, model="claude-sonnet-5-5", content=()):
+    return {"timestamp": f"2026-01-01T12:00:{ts:02d}Z", "type": "assistant",
+            "message": {"id": mid, "model": model, "usage": {"input_tokens": 100, "output_tokens": 50},
+                        "content": list(content)}}
+
+
 class TestClaudon(unittest.TestCase):
 
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp_dir.cleanup)
         self.tmp_path = Path(self.tmp_dir.name)
+
+    def write(self, rel, lines):
+        f = self.tmp_path / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("".join((x if isinstance(x, str) else json.dumps(x)) + "\n" for x in lines), encoding="utf-8")
+        return f
+
+    def test_price_longest_key_wins(self):
+        self.assertEqual(claudon.price("claude-opus-5-5")[0][:2], (4, 20))
+        self.assertEqual(claudon.price("claude-opus-4-8")[0][:2], (5, 25))
+        self.assertEqual(claudon.price("claude-opus-4-1-20250805")[0][:2], (15, 75))
+        self.assertEqual(claudon.price("claude-sonnet-4-6")[0][:2], (3, 15))
+        self.assertEqual(claudon.price("claude-fable-5-1"), ((10, 50, .25, 12.5, 20), False))
+        with mock.patch.dict(claudon.PRICE, {"claude-opus-5-5": (1, 1, 1, 1, 1)}):
+            self.assertEqual(claudon.price("claude-opus-5-5")[0], (1, 1, 1, 1, 1))
+
+    def test_load_pricing_validates(self):
+        good = self.tmp_path / "p.json"
+        good.write_text('{"My-Model": [1, 2, 0.1, 1.25, 2]}', encoding="utf-8")
+        self.assertEqual(claudon.load_pricing(good), {"my-model": (1, 2, 0.1, 1.25, 2)})
+        bad = self.tmp_path / "bad.json"
+        bad.write_text('{"x": [1, 2]}', encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            claudon.load_pricing(bad)
+
+    def test_malformed_lines_are_skipped(self):
+        f = self.write("p/proj/s.jsonl", [user(0, "hi"), "[]", "not json", '{"timestamp": "x"}',
+                                          {"type": "user", "message": "str"}, assistant(5, "m1")])
+        self.assertEqual(len(claudon.build(str(f))["tasks"]), 1)
+
+    def test_synthetic_messages_are_not_api_calls(self):
+        f = self.write("p/proj/s.jsonl", [user(0, "hi"), assistant(5, "m1"), assistant(6, "m2", model="<synthetic>")])
+        t = claudon.build(str(f))["tasks"][0]
+        self.assertEqual((t["calls"], t["est"], list(t["models"])), (1, False, ["claude-sonnet-5-5"]))
+
+    def test_task_ids_unique_across_sessions_sharing_prefix(self):
+        for name in ("agent-aaaa1111", "agent-aaaa2222"):
+            self.write(f"p/proj/{name}.jsonl", [user(0, "hi"), assistant(5, name)])
+        ids = [t["id"] for t in claudon.build(str(self.tmp_path / "p"))["tasks"]]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_redact_strips_prompt_and_mcp_server_names(self):
+        tool = {"type": "tool_use", "id": "tu1", "name": "mcp__acme-internal__search", "input": {"query": "q"}}
+        result = {"timestamp": "2026-01-01T12:00:07Z", "type": "user",
+                  "message": {"content": [{"type": "tool_result", "tool_use_id": "tu1", "content": "ok"}]}}
+        f = self.write("p/proj/s.jsonl", [user(0, "secret prompt"), assistant(5, "m1", content=[tool]), result])
+        data = claudon.build(str(f))
+        claudon.redact(data)
+        dumped = json.dumps(data)
+        self.assertNotIn("secret prompt", dumped)
+        self.assertNotIn("acme-internal", dumped)
+        self.assertIn("mcp__server-1__search", data["tasks"][0]["tool_stats"])
 
     def test_price_lookup(self):
         p, est = claudon.price('claude-3-5-sonnet-20241022')
@@ -30,10 +92,17 @@ class TestClaudon(unittest.TestCase):
     def test_install_plugin(self):
         fake_home = self.tmp_path / "home"
         with mock.patch.dict(os.environ, {"HOME": str(fake_home), "USERPROFILE": str(fake_home)}):
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
             claudon.install_plugin()
         cmd_file = fake_home / ".claude" / "commands" / "claudon.md"
         self.assertTrue(cmd_file.exists())
         self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
+
+    def test_install_plugin_honours_claude_config_dir(self):
+        cfg = self.tmp_path / "cfg"
+        with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(cfg)}):
+            claudon.install_plugin()
+        self.assertTrue((cfg / "commands" / "claudon.md").exists())
 
     def test_build_and_redact(self):
         # Create a mock session .jsonl file with valid prompt & assistant record
