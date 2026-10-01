@@ -539,7 +539,7 @@ def main():
 
 TEMPLATE = r'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Claude Code Analytics</title>
+<title>Claudon</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1c2330;--mute:#6b7585;--line:#e3e6ec;--model:#3b82f6;--think:#8b5cf6;--tool:#f59e0b;--agent:#14b8a6;--user:#ec4899;--wait:#cbd2dc;--err:#ef4444;--ok:#10b981}
 @media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--fg:#e6e9ef;--mute:#8d97a8;--line:#272d3a;--wait:#3a4252}}
@@ -571,7 +571,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 footer{color:var(--mute);font-size:12px;padding:10px 20px 40px;max-width:1500px;margin:auto}code{background:var(--bg);padding:1px 5px;border-radius:4px}
 .tip{color:var(--mute);cursor:help;border-bottom:1px dotted}
 </style></head><body>
-<header><h1>Claude Code Analytics</h1>
+<header><h1>Claudon</h1>
 <nav id="nav"></nav><span style="flex:1"></span>
 <select id="fp"></select><input id="fq" placeholder="search prompts…" size="22"></header>
 <main id="view"></main><div id="modal"><div><span id="x">×</span><div id="mbody"></div></div></div>

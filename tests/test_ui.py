@@ -118,7 +118,7 @@ class TestClaudonUI(unittest.TestCase):
 
         # Title text, color, and size
         h1 = self.page.locator("h1")
-        self.assertEqual(h1.text_content().strip(), "Claude Code Analytics")
+        self.assertEqual(h1.text_content().strip(), "Claudon")
         h1_font_size = h1.evaluate("el => getComputedStyle(el).fontSize")
         self.assertEqual(h1_font_size, "16px")
 
