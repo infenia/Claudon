@@ -11,7 +11,7 @@ REPO="https://github.com/infenia/Claudon"
 mkdir -p "${INSTALL_DIR}"
 
 if ! command -v python3 >/dev/null 2>&1; then
-    echo "Warning: python3 not found on PATH; Claudon needs Python 3.10+ to run."
+    echo "Warning: python3 not found on PATH; Claudon needs Python 3.11+ to run."
 fi
 
 TMP="$(mktemp)"

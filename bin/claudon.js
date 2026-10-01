@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 // which exists on PATH but isn't Python; `python` may also be Python 2.
 function findPython() {
   for (const cmd of ['python3', 'python', 'py']) {
-    const probe = spawnSync(cmd, ['-c', 'import sys; sys.exit(sys.version_info < (3, 10))'], { stdio: 'ignore' });
+    const probe = spawnSync(cmd, ['-c', 'import sys; sys.exit(sys.version_info < (3, 11))'], { stdio: 'ignore' });
     if (probe.status === 0) return cmd;
   }
   return null;
@@ -18,7 +18,7 @@ function findPython() {
 
 const python = findPython();
 if (!python) {
-  console.error('Error: Claudon needs Python 3.10+ (standard library only).');
+  console.error('Error: Claudon needs Python 3.11+ (standard library only).');
   console.error('Install it and make sure python3, python or py is on your PATH.');
   process.exit(1);
 }
