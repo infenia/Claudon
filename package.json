@@ -24,7 +24,7 @@
     "npx",
     "bunx"
   ],
-  "author": "Claudon Contributors",
+  "author": "Infenia Private Limited",
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"

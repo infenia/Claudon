@@ -281,6 +281,14 @@ class TestClaudonUI(unittest.TestCase):
         close_x.click()
         self.assertFalse(modal.is_visible())
 
+    def test_footer_attribution(self):
+        """Test footer contains developer attribution to Infenia Private Limited and MIT license."""
+        footer = self.page.locator("#foot")
+        self.assertTrue(footer.is_visible())
+        footer_text = footer.text_content()
+        self.assertIn("Infenia Private Limited", footer_text)
+        self.assertIn("MIT License", footer_text)
+
     def test_dark_mode_color_scheme(self):
         """Test theme dark mode CSS variable overrides for background and card colors."""
         dark_context = self.browser.new_context(

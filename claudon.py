@@ -493,7 +493,7 @@ function detail(id){const t=D.tasks.find(x=>x.id==id),w=t.wall,pc=x=>(x/w*100).t
 const views=[overview,tasksView,toolsView,modelsView,bottlenecks];
 function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=>b.classList.toggle('on',i==tab));
  $('#view').innerHTML=F.length?views[tab]():'<div class="card">No tasks match.</div>'}
-$('#foot').innerHTML=`Generated ${D.generated} from <code>${esc(D.root)}</code> (${D.files} files, ${D.sessions.length} sessions). A <b>task</b> = one human prompt through to the last activity before the next prompt; a <b>turn</b> = one model API call.
+$('#foot').innerHTML=`Generated ${D.generated} from <code>${esc(D.root)}</code> (${D.files} files, ${D.sessions.length} sessions). Developed by <b>Infenia Private Limited</b> under the MIT License. A <b>task</b> = one human prompt through to the last activity before the next prompt; a <b>turn</b> = one model API call.
  Costs are <b>estimates</b> from token usage × configured $/MTok rates (${esc(JSON.stringify(D.price))}); * = includes models with unknown pricing. Estimates typically land ~90-95% of the CLI's own reported total (advisor/side calls are not in transcripts). Subagent transcripts are attributed to the task running when they started.
  Time split uses interval union (model &gt; tools &gt; subagent &gt; user tools), so parallel work is not double counted; "idle" is time with no model or tool activity.`;
 document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task]');if(!el)return;

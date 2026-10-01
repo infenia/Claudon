@@ -92,4 +92,4 @@ claudon [PATH] [-o FILE] [--redact] [--pricing FILE] [--open] [--install-plugin]
 
 ## 📄 License
 
-MIT License. See [LICENSE](LICENSE) for details.
+Developed by **Infenia Private Limited**. MIT License. See [LICENSE](LICENSE) for details.

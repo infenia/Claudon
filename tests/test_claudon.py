@@ -73,6 +73,10 @@ class TestClaudon(unittest.TestCase):
         claudon.redact(data)
         self.assertEqual(data["root"], "(redacted)")
 
+    def test_infenia_attribution_in_template(self):
+        self.assertIn("Infenia Private Limited", claudon.TEMPLATE)
+        self.assertIn("MIT License", claudon.TEMPLATE)
+
 
 if __name__ == "__main__":
     unittest.main()
