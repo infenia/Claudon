@@ -279,6 +279,32 @@ class TestClaudonUI(unittest.TestCase):
         close_x.click()
         self.assertFalse(modal.is_visible())
 
+    def test_tables_load_more_rows(self):
+        """Tables longer than a page offer 'show N more' / 'show all' instead of silently truncating."""
+        recs = []
+        for i in range(20):                               # 20 tasks; the thinking table pages by 15
+            recs.append({"timestamp": f"2025-01-01T12:{i:02d}:00Z", "type": "user", "message": {"content": f"task {i}"}})
+            recs.append({"timestamp": f"2025-01-01T12:{i:02d}:05Z", "type": "assistant",
+                         "message": {"id": f"m{i}", "model": "claude-sonnet-5-5", "usage": {"output_tokens": 5}, "content": []}})
+        f = self.tmp_path / "many" / "proj" / "s.jsonl"
+        f.parent.mkdir(parents=True)
+        f.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
+        report = self.tmp_path / "many.html"
+        report.write_text(claudon.render_html(claudon.build(str(f))), encoding="utf-8")
+        self.page.goto(report.as_uri())
+        self.page.click("nav button:text-is('Models & thinking')")
+        card = self.page.locator(".card", has=self.page.locator("h2", has_text="Most thinking-heavy tasks"))
+        rows = lambda: card.locator("table tr").count() - 1
+        self.assertEqual(rows(), 15)
+        self.assertIn("showing 15 of 20", card.locator(".more").inner_text())
+        card.locator(".more button", has_text="show 5 more").click()
+        self.assertEqual(rows(), 20)
+        self.assertEqual(card.locator(".more").count(), 0)
+        self.page.fill("#fq", "task")                      # a new filter starts again at page 1
+        self.assertEqual(rows(), 15)
+        card.locator(".more button", has_text="show all").click()
+        self.assertEqual(rows(), 20)
+
     def test_dark_mode_color_scheme(self):
         """Test theme dark mode CSS variable overrides for background and card colors."""
         dark_context = self.browser.new_context(

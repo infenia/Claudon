@@ -351,7 +351,7 @@ def analyze_session(sid, proj, files, seen_msgs):
             cost=round(sum(c['cost'] for c in cs), 5), cost_mix=[round(sum(c['mix'][i] for c in cs), 5) for i in range(4)],
             sub_cost=round(sum(c['cost'] for c in cs if c['sub']), 5),
             est=any(c['est'] for c in cs), ctx_max=max(c['ctx'] for c in cs), compacts=[[round(ct - t0, 1), dur, pre, post] for ct, dur, pre, post in t['compacts']],
-            models=models, tool_stats=tool_stats, slow=tcalls[:6], segs=segs, ctx=ctx,
+            models=models, tool_stats=tool_stats, slow=tcalls, segs=segs, ctx=ctx,
             efforts=sorted({str(c['eff']) for c in cs if c['eff']})))
     if not tasks:
         return None, []
@@ -569,6 +569,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 .lane:last-child{border:0}.lane span{position:absolute;top:3px;height:18px;border-radius:3px;min-width:2px;opacity:.9}.lane label{position:absolute;left:4px;top:4px;font-size:11px;color:var(--mute);z-index:1;pointer-events:none}
 .axis{display:flex;justify-content:space-between;color:var(--mute);font-size:11px}.pre{white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;max-height:160px;overflow:auto;font-size:12px}
 footer{color:var(--mute);font-size:12px;padding:10px 20px 40px;max-width:1500px;margin:auto}code{background:var(--bg);padding:1px 5px;border-radius:4px}
+.more{display:flex;gap:8px;align-items:center;margin-top:8px}.more button{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 10px;cursor:pointer}.more button:hover{border-color:var(--model)}
 .tip{color:var(--mute);cursor:help;border-bottom:1px dotted}
 </style></head><body>
 <header><h1>Claudon</h1>
@@ -596,12 +597,13 @@ function filt(){const p=$('#fp').value,q=$('#fq').value.toLowerCase();F=D.tasks.
 const bar=t=>{const w=t.wall||1,seg=(k,c)=>`<i class="${c}" style="width:${t[k]/w*100}%" title="${c}"></i>`;
  return `<div class="bar" title="model ${T(t.model_s)} · tools ${T(t.tool_s)} · subagent ${T(t.agent_s)} · user ${T(t.user_s)} · idle ${T(t.wait_s)}">${seg('model_s','m')}${seg('tool_s','t')}${seg('agent_s','a')}${seg('user_s','u')}</div>`};
 const legend='<div class="leg"><span><b class="m"></b>model</span><span><b class="th"></b>thinking</span><span><b class="t"></b>tools</span><span><b class="a"></b>subagent wait</span><span><b class="u"></b>user prompts</span><span><b class="w"></b>idle / waiting</span></div>';
+const shown={};   // table id -> rows currently shown ("show more" grows it by the table's page size)
 function tbl(id,cols,rows,limit=200,click){
- const s=sorts[id]||(sorts[id]={i:cols.findIndex(c=>c.d),d:-1});
+ const s=sorts[id]||(sorts[id]={i:cols.findIndex(c=>c.d),d:-1}),n=shown[id]||limit;
  if(s.i>=0){const c=cols[s.i];rows=[...rows].sort((a,b)=>{const x=c.v(a),y=c.v(b);return (x>y?1:x<y?-1:0)*s.d})}
  return `<table><tr>${cols.map((c,i)=>`<th class="${c.n?'n':''}" data-s="${id}|${i}">${c.h}${s.i==i?(s.d<0?' ▾':' ▴'):''}</th>`).join('')}</tr>`+
- rows.slice(0,limit).map(r=>`<tr class="${click?'c':''}" ${click?`data-task="${esc(click(r))}"`:''}>${cols.map(c=>`<td class="${c.n?'n':''}">${c.f(r)}</td>`).join('')}</tr>`).join('')+'</table>'+
- (rows.length>limit?`<div class="s">showing ${limit} of ${rows.length}</div>`:'')}
+ rows.slice(0,n).map(r=>`<tr class="${click?'c':''}" ${click?`data-task="${esc(click(r))}"`:''}>${cols.map(c=>`<td class="${c.n?'n':''}">${c.f(r)}</td>`).join('')}</tr>`).join('')+'</table>'+
+ (rows.length>n?`<div class="more s">showing ${n} of ${rows.length}<button data-more="${id}|${limit}">show ${Math.min(limit,rows.length-n)} more</button><button data-more="${id}|all">show all</button></div>`:'')}
 const kpi=(k,v,s='')=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
 const A=a=>({wall:sum(a,t=>t.wall),model:sum(a,t=>t.model_s),tool:sum(a,t=>t.tool_s),agent:sum(a,t=>t.agent_s),user:sum(a,t=>t.user_s),wait:sum(a,t=>t.wait_s),
  calls:sum(a,t=>t.calls),sub:sum(a,t=>t.sub_calls),tools:sum(a,t=>t.tools),cost:sum(a,t=>t.cost),think:sum(a,t=>t.think_s),thinkTok:sum(a,t=>t.think_tok),
@@ -633,7 +635,7 @@ function tasksView(){return `<div class="card">${legend}<div style="height:8px">
  {h:'Time split',f:bar,v:t=>t.wait_s/t.wall},{h:'Peak ctx',n:1,f:t=>N(t.ctx_max),v:t=>t.ctx_max},{h:'Cost',n:1,f:t=>$$(t.cost)+(t.est?'*':''),v:t=>t.cost}],F,300,t=>t.id)+'</div>'}
 
 function toolsView(){const rows=toolAgg(F),tot=sum(rows,r=>r[3])||1,mx=Math.max(...rows.map(r=>r[3]),1);
- const slow=F.flatMap(t=>t.slow.map(s=>[...s,t])).sort((a,b)=>b[1]-a[1]).slice(0,25);
+ const slow=F.flatMap(t=>t.slow.map(s=>[...s,t])).sort((a,b)=>b[1]-a[1]);
  return `<div class="card"><h2>Tools by total time</h2>`+tbl('tools',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>N(r[1]),v:r=>r[1]},{h:'Errors',n:1,f:r=>r[2]?`${r[2]} <span class="s">(${P(r[2]/r[1])})</span>`:'–',v:r=>r[2]/r[1]},
  {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="hb t" style="width:${r[3]/mx*100}%"></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/r[1]).toFixed(1)+'s',v:r=>r[3]/r[1]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'<span class="tip" title="calls the user rejected or interrupted; not counted as errors">Rejected</span>',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
  `<div class="s">Tool duration = tool_use → tool_result timestamps, so it includes time spent waiting on permission prompts. Subagent (Task/Agent) calls are counted here but painted separately in the time split.</div></div>
@@ -674,7 +676,7 @@ function detail(id){const t=D.tasks.find(x=>x.id==id),w=t.wall,pc=x=>(x/w*100).t
  <div class="grid" style="margin:12px 0">${kpi('Wall',T(w))}${kpi('Turns',t.calls,t.sub_calls+' subagent calls')}${kpi('Tool calls',t.tools)}${kpi('Thinking',T(t.think_s),N(t.think_tok)+' tok')}${kpi('Cost',$$(t.cost)+(t.est?'*':''),'subagents '+$$(t.sub_cost))}${kpi('Peak context',N(t.ctx_max),t.compacts.length+' compactions')}</div>
  ${bar(t)}<div style="height:6px"></div>${legend}<h2 style="margin-top:14px">Timeline <span class="s">(purple = thinking portion of a model call, red = failed tool)</span></h2><div class="gantt">${lanes}</div><div class="axis">${[0,.25,.5,.75,1].map(f=>`<span>${T(w*f)}</span>`).join('')}</div>
  <div class="cols" style="margin-top:14px"><div><h2>Tools in this task</h2>${tbl('dt',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>r[1],v:r=>r[1]},{h:'Err',n:1,f:r=>r[2],v:r=>r[2]},{h:'Total',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]}],trows,20)}</div>
- <div><h2>Slowest calls</h2>${tbl('ds',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Dur',n:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr" style="max-width:300px">${esc(r[2])}</div>`,v:r=>r[2]}],t.slow,6)}
+ <div><h2>Tool calls, slowest first</h2>${tbl('ds',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Dur',n:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr" style="max-width:300px">${esc(r[2])}</div>`,v:r=>r[2]}],t.slow,10)}
  <h2 style="margin-top:12px">Context size per turn</h2>${svg}<div class="s">peak ${N(t.ctx_max)} tokens</div></div></div>`}
 
 const views=[overview,tasksView,toolsView,modelsView,bottlenecks];
@@ -683,11 +685,13 @@ function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=
 $('#foot').innerHTML=`Generated ${D.generated} from <code>${esc(D.root)}</code> (${D.files} files, ${D.sessions.length} sessions). A <b>task</b> = one human prompt through to the last activity before the next prompt; a <b>turn</b> = one model API call.
  Costs are <b>estimates</b> from token usage × configured $/MTok rates (${esc(JSON.stringify(D.price))}); * = includes models with unknown pricing. On real transcripts estimates land at a median ~95% of the CLI's own reported total; advisor sub-calls and fast mode are priced, server-tool fees (e.g. web search) are not. Subagent transcripts are attributed to the task running when they started.
  Time split uses interval union (model &gt; tools &gt; subagent &gt; user tools), so parallel work is not double counted; "idle" is time with no model or tool activity.`;
-document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task]');if(!el)return;
- if(el.dataset.t!=null){tab=+el.dataset.t;render()}else if(el.dataset.s){const[id,i]=el.dataset.s.split('|'),s=sorts[id];s.d=s.i==+i?-s.d:-1;s.i=+i;render();if(cur&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)}
- else{cur=el.dataset.task;$('#mbody').innerHTML=detail(cur);$('#modal').style.display='block'}});
+document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task],[data-more]');if(!el)return;
+ const modal=()=>{if(cur&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
+ if(el.dataset.more){const[id,step]=el.dataset.more.split('|');shown[id]=step=='all'?Infinity:(shown[id]||+step)+ +step;render();modal();return}
+ if(el.dataset.t!=null){tab=+el.dataset.t;render()}else if(el.dataset.s){const[id,i]=el.dataset.s.split('|'),s=sorts[id];s.d=s.i==+i?-s.d:-1;s.i=+i;render();modal()}
+ else{cur=el.dataset.task;delete shown.dt;delete shown.ds;$('#mbody').innerHTML=detail(cur);$('#modal').style.display='block'}});
 $('#x').onclick=()=>$('#modal').style.display='none';$('#modal').onclick=e=>{if(e.target.id=='modal')e.target.style.display='none'};
-$('#fp').onchange=$('#fq').oninput=render;render();
+$('#fp').onchange=$('#fq').oninput=()=>{for(const k in shown)delete shown[k];render()};render();  // a new filter starts tables at page 1
 </script></body></html>
 '''
 
