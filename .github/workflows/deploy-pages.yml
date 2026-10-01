@@ -1,0 +1,44 @@
+name: Deploy WASM to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'wasm/**'
+      - 'claudon.py'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Prepare site directory
+        run: |
+          mkdir -p _site
+          cp -r wasm/* _site/
+          cp claudon.py _site/
+          touch _site/.nojekyll
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
