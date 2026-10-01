@@ -33,7 +33,7 @@ onmessage = async ({ data: { files } }) => {
       py.FS.writeFile(path, new Uint8Array(data));
       py.FS.utime(path, mtime, mtime);     // claudon breaks session-order ties by mtime
     }
-    postMessage({ type: 'status', text: 'Processing session analytics in WebAssembly...' });
+    postMessage({ type: 'status', text: 'Analyzing on this computer (WebAssembly)...' });
     const html = py.runPython(`
 import claudon
 data = claudon.build('${ROOT}')

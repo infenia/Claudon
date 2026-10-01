@@ -56,9 +56,12 @@ Run Claudon entirely in your browser without local Python installed. The page lo
 so it has to be served over HTTP (opening the file directly via `file://` can't load it):
 1. From the repository root run `python3 -m http.server` (or host the repo on any static server, e.g. GitHub Pages).
 2. Open `http://localhost:8000/wasm/`.
-3. Drop `.jsonl` transcripts, or use **Browse Folder** on `~/.claude/projects` to keep project grouping and subagents.
+3. Drop `.jsonl` transcripts, or use **Open Folder** on `~/.claude/projects` to keep project grouping and subagents.
 
-Transcripts are processed in the browser; only the Pyodide runtime is downloaded from jsDelivr.
+**Nothing is uploaded.** Files are read by the browser and analyzed on your machine; the page's only network requests
+download the Pyodide runtime (jsDelivr) and `claudon.py`, and once it shows *Ready* it keeps working offline. Chrome and
+Edge ask to let the page *view* the folder. Browsers without that folder API (Firefox, Safari) show their own
+"upload" prompt for folder pickers, which only grants the page read access.
 
 ### 🛠️ Native Compilation (Nuitka) & Semantic Releases
 To compile Claudon into a single native binary locally:
