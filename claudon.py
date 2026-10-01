@@ -32,8 +32,12 @@ AGENT_TOOLS = {'Task', 'Agent'}
 USER_TOOLS = {'AskUserQuestion', 'ExitPlanMode'}
 SKIP_PREFIX = ('<task-notification', '<local-command', 'This session is being continued',
                '[Request interrupted', '<system-reminder', 'Caveat:')
+# built-in slash commands that only drive the CLI UI (no model call), so they don't start a task
 SKIP_CMDS = {'clear', 'model', 'help', 'compact', 'config', 'resume', 'exit', 'status', 'cost',
-             'login', 'logout', 'permissions', 'mcp', 'agents', 'doctor', 'hooks', 'fast', 'effort'}
+             'login', 'logout', 'permissions', 'mcp', 'agents', 'doctor', 'hooks', 'fast', 'effort',
+             'plugin', 'reload-skills', 'context', 'usage', 'ide', 'memory', 'add-dir', 'theme', 'vim',
+             'terminal-setup', 'export', 'rename', 'tasks', 'bashes', 'rewind', 'sandbox', 'skills',
+             'privacy-settings', 'release-notes', 'upgrade', 'output-style', 'keybindings'}
 # how Claude Code marks a tool call the user rejected or interrupted (a user decision, not a tool failure)
 USER_STOP = re.compile(r"doesn't want to proceed|tool use was rejected|\[Request interrupted by user", re.I)
 MAX_SEGS = 1200
@@ -90,9 +94,12 @@ def prompt_text(r):
     t = text_of(c).strip()
     if not t or t.startswith(SKIP_PREFIX):
         return None
-    m = re.match(r'<command-name>/?([\w:-]+)', t)
-    if m and m.group(1) in SKIP_CMDS:
-        return None
+    m = re.search(r'<command-name>/?([\w:-]+)', t)    # tag order varies: command-message may come first
+    if m:
+        if m.group(1) in SKIP_CMDS:
+            return None
+        args = re.search(r'<command-args>(.*?)</command-args>', t, re.S)
+        return f"/{m.group(1)} {args.group(1).strip() if args else ''}".strip()
     return t
 
 

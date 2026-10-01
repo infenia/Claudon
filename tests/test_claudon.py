@@ -170,6 +170,13 @@ class TestClaudon(unittest.TestCase):
         self.assertAlmostEqual(t["cost"], (1000 * 8 + 100 * 40) / 1e6)
         self.assertFalse(t["est"])
 
+    def test_slash_commands(self):
+        cmd = lambda name, args="": user(0, f"<command-message>{name}</command-message>\n<command-name>/{name}</command-name>"
+                                            + (f"\n<command-args>{args}</command-args>" if args else ""))
+        self.assertIsNone(claudon.prompt_text(cmd("plugin")))         # local-only, any tag order
+        self.assertEqual(claudon.prompt_text(cmd("review", " PR 12 ")), "/review PR 12")
+        self.assertEqual(claudon.prompt_text(cmd("init")), "/init")
+
     def test_shared_history_credited_to_original_not_copy(self):
         orig = "11111111-aaaa"
         copied = [dict(user(0, "hi"), sessionId=orig), dict(assistant(5, "shared"), sessionId=orig)]
