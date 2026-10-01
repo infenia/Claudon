@@ -384,7 +384,8 @@ def first_session_id(path):
                 if isinstance(r, dict) and isinstance(r.get('sessionId'), str):
                     return r['sessionId']
     except OSError:
-        pass
+        # unreadable here -> treat as an original session; build() reports the read error when it analyses it
+        return None
     return None
 
 
