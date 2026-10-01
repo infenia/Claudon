@@ -83,7 +83,7 @@ python3 claudon.py ~/.claude -o report.html --open
 
 ### ⚡ WebAssembly (In-Browser / Zero Python)
 Run Claudon entirely in your browser without local Python installed via GitHub Pages or local HTTP server:
-- **Live web app**: [infenia.github.io/claudon](https://infenia.github.io/claudon/)
+- **Live web app**: [claudon.infenia.com](https://claudon.infenia.com/)
 - **Local server**: From the repository root run `python3 -m http.server` and open `http://localhost:8000/wasm/`.
 
 Drop `.jsonl` transcripts, or use **Open Folder** on `~/.claude/projects` to keep project grouping and subagents.

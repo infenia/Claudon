@@ -13,10 +13,10 @@ a human approval gate in front of PyPI.
                                                 ▼
                        tag v0.2.0 + GitHub Release (notes from the changelog)
                                                 │ same workflow dispatches, on the tag:
-                     ┌──────────────────────────┼───────────────────────────┐
-                     ▼                          ▼                           ▼
-   release.yml: preflight → full CI → build  nuitka-build.yml: binaries     deploy-pages.yml: WASM site
-     ├─ PyPI (`pypi` env approval)             SHA256SUMS → GitHub Release    → GitHub Pages deployment
+                     ┌──────────────────────────┴───────────────────────────┐
+                     ▼                                                      ▼
+   release.yml: preflight → full CI → build                  nuitka-build.yml: binaries, SHA256SUMS,
+     ├─ PyPI (trusted publishing, `pypi` env approval)         attestations → attached to the Release
      └─ npm (provenance)
 ```
 
