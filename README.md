@@ -1,6 +1,6 @@
 <div align="center">
 
-# Claudon 📊
+# Claudon
 
 **See where your Claude Code time and money actually go.**
 
