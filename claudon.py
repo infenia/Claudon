@@ -10,7 +10,7 @@ Stdlib only, single file. Everything is derived from the transcripts; see the no
 import argparse, bisect, collections, datetime as dt, json, math, os, re, sys, webbrowser
 from pathlib import Path
 
-__version__ = '0.1.0'  # x-release-please-version
+__version__ = '0.2.0'  # x-release-please-version
 
 # $/MTok: input, output, cache_read, cache_write_5m, cache_write_1h (Anthropic list prices, 2026-09).
 # Keys are model-id substrings; the longest matching key wins, so a bare family name is the
