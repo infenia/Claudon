@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "claudon"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Interactive session analytics & HTML dashboard for Claude Code"
 readme = "README.md"
-requires-python = ">=3.9"
-license = { text = "MIT" }
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Infenia Private Limited" }
 ]
@@ -16,18 +17,26 @@ keywords = ["claude", "claude-code", "analytics", "dashboard", "anthropic", "llm
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: User Interfaces",
 ]
 
 [project.urls]
-Homepage = "https://github.com/claudon/claudon"
-Repository = "https://github.com/claudon/claudon"
+Homepage = "https://github.com/infenia/Claudon"
+Repository = "https://github.com/infenia/Claudon"
 
 [project.scripts]
 claudon = "claudon:main"
+
+[tool.setuptools]
+py-modules = ["claudon"]
+
+[tool.setuptools.dynamic]
+version = { attr = "claudon.__version__" }   # single source; scripts/check_version.py keeps package.json in sync
+
+[tool.ruff.lint]
+select = ["F", "E9"]          # pyflakes + syntax errors; the compact one-file style is intentional

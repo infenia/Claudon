@@ -1,84 +1,101 @@
 # 🚀 Release Process, Manual Triggers & Beta Testing Guide
 
-This document describes the release procedures, manual workflow dispatch triggers, semantic versioning standards, and beta testing best practices for **Claudon**.
+This document describes how **Claudon** is versioned, released and beta-tested.
 
 ---
 
-## 📌 Release Strategy & Semantic Versioning
+## 📌 Versioning
 
-Claudon follows [Semantic Versioning (SemVer 2.0.0)](https://semver.org/):
+Claudon follows [Semantic Versioning (SemVer 2.0.0)](https://semver.org/), with **one version string** for every channel:
 
-- **Stable Releases**: `vMAJOR.MINOR.PATCH` (e.g. `v0.1.0`, `v1.0.0`)
-- **Beta / Pre-releases**: `vMAJOR.MINOR.PATCH-beta.1` or `vMAJOR.MINOR.PATCHb1` (e.g. `v0.2.0b1` or `v1.0.0-rc1`)
+- **Stable**: `X.Y.Z` (e.g. `0.1.0`, `1.0.0`)
+- **Prerelease**: `X.Y.Z-alpha.N`, `X.Y.Z-beta.N` or `X.Y.Z-rc.N` (e.g. `0.2.0-beta.1`)
 
----
+That string is valid for npm as-is, and PyPI normalises it per PEP 440 (`0.2.0-beta.1` → `0.2.0b1`), so no
+per-registry spelling is needed. Git tags are the version prefixed with `v` (`v0.2.0-beta.1`).
 
-## 🔒 Strictly Manual Release Workflows
+The version lives in exactly two files, and `scripts/check_version.py` (run in CI and before every release) fails
+if they disagree or the tag doesn't match:
 
-To prevent accidental deployments, **all release workflows are strictly manually triggered (`workflow_dispatch`)**. No packages or binaries are ever published automatically on git push or tag creation.
-
-Releases can be triggered manually in two ways:
-1. **GitHub Actions Web UI**: Navigate to the **Actions** tab on GitHub, select the workflow, and click **Run workflow**.
-2. **GitHub CLI (`gh`)**:
-   ```bash
-   gh workflow run "Manual Publish Release (PyPI & npm)" -f npm_tag=latest
-   gh workflow run "Manual Nuitka Build & Release Standalone Binaries" -f tag_name=v0.1.0
-   ```
+- `claudon.py` → `__version__` (`pyproject.toml` reads it dynamically)
+- `package.json` → `"version"`
 
 ---
 
-## 🧪 Best Practices for Beta Testing & Pre-releases
+## 🔒 Strictly Manual, Tag-Only Release Workflows
 
-When releasing beta features or testing release candidates across package managers:
+No package or binary is ever published automatically on push or tag creation. Both release workflows are
+`workflow_dispatch` only, **must be dispatched on a release tag** (they fail on a branch), re-check the tag against
+the versions above, and run the full CI suite before publishing.
 
-### 1. PyPI (`uvx` / `pipx` / `pip`)
-- **Version Convention**: Use PEP 440 pre-release notation in `pyproject.toml` (e.g., `version = "0.2.0b1"`).
-- **Behavior**: Standard users running `uvx claudon` or `pip install claudon` will automatically receive the **latest stable release**.
-- **Beta Testers**: Testers opt-in to beta releases using:
-  ```bash
-  # Test beta via uvx
-  uvx claudon --pre
-
-  # Test beta via pipx
-  pipx run --spec claudon==0.2.0b1 claudon
-
-  # Test beta via pip
-  pip install --pre claudon
-  ```
-
-### 2. npm (`npx` / `bunx`)
-- **Dist-Tag Convention**: Set `"version": "0.2.0-beta.1"` in `package.json`. When triggering the release workflow, set `npm_tag` to `beta`.
-- **Behavior**: Standard users running `npx claudon` or `bunx claudon` receive the `@latest` release.
-- **Beta Testers**: Testers opt-in to beta releases using:
-  ```bash
-  # Test beta via npx
-  npx claudon@beta
-
-  # Test beta via bunx
-  bunx claudon@beta
-  ```
-
-### 3. Nuitka Native Binaries (GitHub Releases)
-- **Workflow Inputs**: Set `tag_name` to the release tag (e.g., `v0.2.0b1`) and check `is_prerelease` to `true`.
-- **Behavior**: GitHub creates a **Prerelease** entry with pre-compiled native binaries attached for Linux, macOS, and Windows.
+| Workflow | Publishes |
+|---|---|
+| `release.yml` — Publish Release (PyPI & npm) | PyPI (trusted publishing) and npm (with provenance) |
+| `nuitka-build.yml` — Build & Release Standalone Binaries | GitHub Release with Linux / macOS arm64 + Intel / Windows binaries plus `claudon.py`, `SHA256SUMS` and build provenance attestations; tags containing `-` become prereleases. Pinned `install.sh` installs (`CLAUDON_VERSION=vX.Y.Z`) download from this release, so run it for every version |
 
 ---
 
 ## 🛠️ Step-by-Step Release Checklist
 
-### 1. Bump Version in Files
-Update version strings in both configuration files:
-- `pyproject.toml` (`version = "X.Y.Z"`)
-- `package.json` (`"version": "X.Y.Z"`)
-
-### 2. Commit & Tag
+### 1. Bump the version
+Set the same version in `claudon.py` (`__version__ = "X.Y.Z"`) and `package.json` (`"version": "X.Y.Z"`), then:
 ```bash
-git add pyproject.toml package.json
-git commit -m "chore: bump version to vX.Y.Z"
-git tag vX.Y.Z
-git push origin main --tags
+python scripts/check_version.py
 ```
 
-### 3. Trigger Manual Workflow
-1. Go to **Actions** -> **Manual Publish Release (PyPI & npm)** -> **Run workflow**. Select `npm_tag` (`latest` for stable, `beta` for beta testing).
-2. Go to **Actions** -> **Manual Nuitka Build & Release Standalone Binaries** -> **Run workflow**. Enter tag name and toggle `is_prerelease` if applicable.
+### 2. Merge, then tag the merged commit
+```bash
+git switch -c release/vX.Y.Z
+git commit -am "chore: bump version to X.Y.Z"
+git push -u origin release/vX.Y.Z      # open a PR, wait for CI, merge
+git switch main && git pull
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+### 3. Dispatch the workflows on the tag
+```bash
+gh workflow run release.yml      --ref vX.Y.Z -f npm_tag=latest
+gh workflow run nuitka-build.yml --ref vX.Y.Z
+```
+`release.yml` inputs: `npm_tag` (must be `latest` for a stable tag and anything else, e.g. `beta`, for a
+prerelease; the workflow enforces this), and `publish_pypi` / `publish_npm` (both default `true`; set one to
+`false` to re-run only the other registry after a partial failure).
+Or in the **Actions** tab: pick the workflow → **Run workflow** → choose the tag (not a branch) under *Use workflow from*.
+
+---
+
+## 🧪 Beta Testing & Pre-releases
+
+Tag `vX.Y.Z-beta.N` and dispatch `release.yml` with `npm_tag=beta` (the workflow refuses to put a prerelease on
+`latest`). `nuitka-build.yml` marks the GitHub Release as a prerelease automatically.
+
+Regular users keep getting the latest stable release; testers opt in explicitly:
+
+```bash
+# PyPI (version as normalised by PyPI)
+uvx claudon@0.2.0b1
+uvx --prerelease allow claudon
+pipx run --spec claudon==0.2.0b1 claudon
+pip install --pre claudon
+
+# npm
+npx claudon@beta
+bunx claudon@beta
+```
+
+---
+
+## ⚙️ One-Time Repository Setup
+
+- **PyPI trusted publisher**: on PyPI, add a (pending) trusted publisher for project `claudon` with owner `infenia`,
+  repository `Claudon`, workflow `release.yml`, environment `pypi`. No PyPI API token is needed.
+- **GitHub environment** `pypi`: create it under *Settings → Environments*; adding required reviewers gives every
+  PyPI publish a manual approval gate.
+- **npm**: add an automation token as the `NPM_TOKEN` repository secret.
+- **macOS signing (optional)**: without these secrets the macOS binaries are built unsigned. With an Apple Developer
+  account, add `MACOS_CERT_P12` (base64 of the *Developer ID Application* `.p12`), `MACOS_CERT_PASSWORD`,
+  `MACOS_SIGN_IDENTITY` (e.g. `Developer ID Application: Infenia (TEAMID)`), `APPLE_ID`, `APPLE_TEAM_ID` and
+  `APPLE_APP_PASSWORD` (an app-specific password); the workflow then signs and notarizes both macOS binaries.
+- **Branch protection** on `main`: require pull requests, the CI status checks, and *Require branches to be up to
+  date before merging*, so a stale branch can't silently revert merged work.

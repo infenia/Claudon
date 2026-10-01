@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Claudon - In-Browser Claude Code Analytics (WASM)</title>
+  <title>Claudon (in-browser)</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -97,20 +97,45 @@
       color: var(--mute);
       text-align: center;
     }
-    #controls {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      margin-top: 1rem;
-    }
-    #report-frame {
-      width: 100%;
-      height: 80vh;
+    .privacy {
+      margin: 1.5rem auto 0;
+      max-width: 640px;
+      padding: 0.75rem 1rem;
       border: 1px solid var(--border);
       border-radius: 8px;
-      margin-top: 1.5rem;
+      background: var(--bg);
+      color: var(--mute);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      text-align: left;
+    }
+    .privacy strong { color: var(--fg); }
+    #controls, #report-frame { display: none; }
+    /* report view: the dashboard takes the whole window under a slim toolbar */
+    body.report-open { overflow: hidden; }
+    body.report-open > header, body.report-open > footer, body.report-open #drop-zone, body.report-open #status { display: none; }
+    body.report-open #controls {
+      display: flex;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 48px;
+      padding: 0 1rem;
+      gap: 0.75rem;
+      align-items: center;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      z-index: 1;
+    }
+    body.report-open #controls .btn { padding: 0.4rem 0.9rem; }
+    @media (max-width: 600px) { #controls .s { display: none; } }
+    body.report-open #report-frame {
+      display: block;
+      position: fixed;
+      top: 48px; left: 0;
+      width: 100%;
+      height: calc(100% - 48px);
+      border: 0;
       background: white;
-      display: none;
     }
     footer {
       text-align: center;
@@ -120,80 +145,102 @@
       border-top: 1px solid var(--border);
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
 </head>
 <body>
   <header>
     <h1>Claudon 📊 <span class="badge">WASM / Pyodide</span></h1>
-    <span>Run Claude Code Analytics directly in your browser with zero Python installation</span>
+    <span>Runs entirely in your browser: your transcripts never leave this computer</span>
   </header>
 
   <main>
     <div id="drop-zone" class="drop-zone">
       <div class="drop-icon">📁</div>
-      <h2>Select or Drag & Drop Claude Code Transcripts</h2>
+      <h2>Open Claude Code Transcripts</h2>
       <p style="color: var(--mute); margin-bottom: 1.5rem;">
-        Drop one or more <code>.jsonl</code> transcript files or click below to browse.
+        Drop one or more <code>.jsonl</code> transcript files here, or open your <code>~/.claude/projects</code>
+        folder to keep project grouping and subagent transcripts.
       </p>
       <input type="file" id="file-input" multiple accept=".jsonl" style="display: none;">
-      <button class="btn" onclick="document.getElementById('file-input').click()">Browse Files</button>
+      <input type="file" id="dir-input" webkitdirectory style="display: none;">
+      <button class="btn" onclick="document.getElementById('file-input').click()">Open Files</button>
+      <button class="btn" id="dir-btn">Open Folder</button>
+      <div class="privacy">
+        <strong>🔒 Nothing is uploaded.</strong> Your files are read by your browser and analyzed on this computer
+        (Python compiled to WebAssembly). The page's only network requests download the Python runtime from jsDelivr
+        and <code>claudon.py</code>; once it says <em>Ready</em> you can even disconnect from the network.
+        Check it yourself in your browser's developer tools (Network tab).
+        <span id="folder-note"><br>If your browser asks to <em>"upload"</em> files when you open a folder, that is its
+        generic wording for letting this page read them; nothing is sent anywhere.</span>
+      </div>
     </div>
 
-    <div id="status">Loading WebAssembly Python Runtime...</div>
+    <div id="status">Downloading the Python runtime (one-time, no data is sent)...</div>
 
-    <div id="controls" style="display: none;">
-      <button id="download-btn" class="btn">Download HTML Dashboard</button>
-      <button class="btn" style="background: #475569;" onclick="resetUI()">Analyze Another File</button>
+    <div id="controls">
+      <strong style="flex: 1;">Claudon report</strong>
+      <span class="s" style="color: var(--mute); font-size: 0.85rem; margin-right: 0.5rem;">Generated on this computer · nothing was uploaded</span>
+      <button id="download-btn" class="btn">Save Dashboard as HTML</button>
+      <button class="btn" style="background: #475569;" onclick="resetUI()">Analyze Other Files</button>
     </div>
 
-    <iframe id="report-frame"></iframe>
+    <iframe id="report-frame" sandbox="allow-scripts"></iframe>
   </main>
 
   <footer>
-    100% Client-Side WebAssembly. Your transcript files never leave your browser.
+    Your transcripts are processed locally and never uploaded; the only downloads are the Python runtime (jsDelivr) and claudon.py.
   </footer>
 
   <script>
-    let pyodide = null;
+    const ROOT = '/home/pyodide/transcripts';
+    const SERVE_HINT = 'Serve the repository over HTTP, e.g. run "python3 -m http.server" in the repo root ' +
+      'and open http://localhost:8000/wasm/';
+    const READY = 'Ready. Open your transcript files; they stay on this computer.';
+    let ready = false, busy = false;
     let generatedHtml = null;
 
     const statusEl = document.getElementById('status');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
+    const dirInput = document.getElementById('dir-input');
     const reportFrame = document.getElementById('report-frame');
-    const controls = document.getElementById('controls');
     const downloadBtn = document.getElementById('download-btn');
 
-    async function initPyodide() {
-      try {
-        pyodide = await loadPyodide();
-        statusEl.textContent = 'WebAssembly Python initialized. Ready for transcript files!';
-
-        // Load claudon.py code into Python environment
-        let claudonPyContent = '';
-        try {
-          const resp = await fetch('../claudon.py');
-          if (resp.ok) {
-            claudonPyContent = await resp.text();
+    // Pyodide + claudon run in worker.js so a long analysis never freezes the page
+    let worker = null;
+    try {
+      worker = new Worker('worker.js');           // throws on file:// pages
+    } catch (err) {
+      statusEl.textContent = `Could not start the analysis worker (${err.message}). ${SERVE_HINT}`;
+    }
+    if (worker) {
+      worker.onerror = (e) => {
+        busy = false;
+        statusEl.textContent = `Analysis worker failed (${e.message || 'load error'}). ${SERVE_HINT}`;
+      };
+      worker.onmessage = ({ data: msg }) => {
+        if (msg.type === 'ready') {
+          ready = true;
+          statusEl.textContent = READY;
+        } else if (msg.type === 'fatal') {
+          statusEl.textContent = `Could not load claudon.py or the Python runtime (${msg.message}). ${SERVE_HINT}`;
+        } else if (msg.type === 'status') {
+          statusEl.textContent = msg.text;
+        } else if (msg.type === 'error') {
+          busy = false;
+          statusEl.textContent = 'Error running analysis: ' + msg.message;
+        } else if (msg.type === 'result') {
+          busy = false;
+          if (!msg.html) {
+            statusEl.textContent = 'No analysable sessions found in the selected files.';
+            return;
           }
-        } catch (e) {}
-
-        if (!claudonPyContent) {
-          // Fallback fetch relative or inline script module
-          statusEl.textContent = 'Ready for transcript files!';
-        } else {
-          pyodide.FS.writeFile('/home/pyodide/claudon.py', claudonPyContent);
-          pyodide.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
+          generatedHtml = msg.html;
+          statusEl.textContent = 'Analytics complete!';
+          displayReport(generatedHtml);
         }
-      } catch (err) {
-        statusEl.textContent = 'Error loading WebAssembly Python: ' + err.message;
-        console.error(err);
-      }
+      };
     }
 
-    initPyodide();
-
-    // Drag & Drop handlers
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropZone.classList.add('dragover');
@@ -206,89 +253,104 @@
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
-        handleFiles(e.dataTransfer.files);
-      }
+      if (e.dataTransfer.files.length) handleFiles([...e.dataTransfer.files].map(f => ({ file: f, rel: f.name })));
     });
 
     fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length) {
-        handleFiles(e.target.files);
-      }
+      handleFiles([...e.target.files].map(f => ({ file: f, rel: f.name })));
+    });
+    // <input webkitdirectory> paths start with the picked folder's own name: drop it so ~/.claude,
+    // its projects/ dir or a single project all map onto the same layout as the CLI
+    dirInput.addEventListener('change', (e) => {
+      handleFiles([...e.target.files].map(f => ({ file: f, rel: f.webkitRelativePath.split('/').slice(1).join('/') })));
     });
 
-    async function handleFiles(files) {
-      if (!pyodide) {
-        alert('WebAssembly Python is still loading. Please wait a moment.');
+    async function* walk(dir, prefix) {
+      for await (const [name, h] of dir.entries()) {
+        const rel = prefix ? `${prefix}/${name}` : name;
+        if (h.kind === 'directory') {
+          if (name !== 'tool-results') yield* walk(h, rel);
+        } else if (name.endsWith('.jsonl')) {
+          yield { file: await h.getFile(), rel };
+        }
+      }
+    }
+
+    // Chrome/Edge: the File System Access picker asks to "view" files; the <input webkitdirectory>
+    // fallback (Firefox, Safari) gets a browser prompt that says "upload", which the privacy note explains
+    const canPickDir = 'showDirectoryPicker' in window;
+    if (canPickDir) document.getElementById('folder-note').hidden = true;
+    document.getElementById('dir-btn').addEventListener('click', async () => {
+      if (!canPickDir) return dirInput.click();
+      let dir;
+      try {
+        dir = await window.showDirectoryPicker({ mode: 'read' });
+      } catch (err) {
+        return;                                   // picker cancelled
+      }
+      statusEl.textContent = 'Listing transcript files on this computer...';
+      const items = [];
+      for await (const item of walk(dir, '')) items.push(item);
+      handleFiles(items);
+    });
+
+    // keep folder structure (project dirs, <session>/subagents/) but never escape ROOT
+    function targetPath(rel, used) {
+      const parts = rel.split('/')
+        .filter(p => p && p !== '.' && p !== '..')
+        .map(p => p.replace(/[^a-zA-Z0-9._-]/g, '_'));
+      let path = `${ROOT}/${parts.join('/')}`;
+      for (let i = 1; used.has(path); i++) path = `${ROOT}/${parts.slice(0, -1).concat(`${i}_${parts.at(-1)}`).join('/')}`;
+      used.add(path);
+      return path;
+    }
+
+    // items: [{ file: File, rel: 'path/relative/to/the/opened/folder.jsonl' }]
+    async function handleFiles(items) {
+      if (!ready || busy) {
+        if (!ready) statusEl.textContent = 'The Python runtime is not ready yet: ' + statusEl.textContent;
         return;
       }
-
-      statusEl.textContent = `Reading ${files.length} file(s)...`;
-
-      // Clean up previous virtual dir
-      try { pyodide.FS.mkdir('/home/pyodide/transcripts'); } catch(e) {}
-
-      let count = 0;
-      for (const file of files) {
-        if (!file.name.endsWith('.jsonl') && !file.name.endsWith('.json')) continue;
-        const arrayBuffer = await file.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
-        const targetPath = `/home/pyodide/transcripts/${count}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        pyodide.FS.writeFile(targetPath, data);
-        count++;
-      }
-
-      if (count === 0) {
+      const transcripts = items.filter(({ file }) => file.name.endsWith('.jsonl'));
+      if (!transcripts.length) {
         statusEl.textContent = 'No .jsonl transcript files were selected.';
         return;
       }
-
-      statusEl.textContent = 'Processing session analytics in WebAssembly...';
-
+      busy = true;                                // cleared by the worker's result/error message
+      statusEl.textContent = `Reading ${transcripts.length} file(s) on this computer...`;
       try {
-        const pythonCode = `
-import json, sys
-import claudon
-
-data = claudon.build('/home/pyodide/transcripts')
-html_report = claudon.TEMPLATE.replace('__DATA__', json.dumps(data, separators=(',', ':')).replace('<', '\\u003c'))
-html_report
-`;
-        generatedHtml = pyodide.runPython(pythonCode);
-
-        statusEl.textContent = 'Analytics complete!';
-        displayReport(generatedHtml);
+        const used = new Set();
+        const payload = [];
+        for (const { file, rel } of transcripts) {
+          payload.push({ path: targetPath(rel, used), data: await file.arrayBuffer(), mtime: file.lastModified });
+        }
+        worker.postMessage({ files: payload }, payload.map(f => f.data));
       } catch (err) {
-        statusEl.textContent = 'Error running analysis: ' + err.message;
-        console.error(err);
+        busy = false;
+        statusEl.textContent = 'Could not read the selected files: ' + err.message;
       }
     }
 
     function displayReport(htmlContent) {
-      dropZone.style.display = 'none';
-      controls.style.display = 'flex';
-      reportFrame.style.display = 'block';
-
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      reportFrame.src = URL.createObjectURL(blob);
+      document.body.classList.add('report-open');
+      reportFrame.srcdoc = htmlContent;
     }
 
     function resetUI() {
-      dropZone.style.display = 'block';
-      controls.style.display = 'none';
-      reportFrame.style.display = 'none';
-      statusEl.textContent = 'Ready for transcript files!';
-      fileInput.value = '';
+      document.body.classList.remove('report-open');
+      reportFrame.removeAttribute('srcdoc');
+      statusEl.textContent = READY;
+      fileInput.value = dirInput.value = '';
       generatedHtml = null;
     }
 
     downloadBtn.addEventListener('click', () => {
       if (!generatedHtml) return;
-      const blob = new Blob([generatedHtml], { type: 'text/html' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = URL.createObjectURL(new Blob([generatedHtml], { type: 'text/html' }));
       a.download = 'claudon_report.html';
       a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 0);
     });
   </script>
 </body>
