@@ -565,7 +565,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 .find{border-left:4px solid var(--tool);padding:6px 12px;margin:10px 0;background:var(--bg);border-radius:0 6px 6px 0}.find.hi{border-color:var(--err)}.find.lo{border-color:var(--model)}
 .find b{display:block}.chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
 #modal{position:fixed;inset:0;background:#0008;display:none;z-index:10;overflow:auto;padding:30px}#modal>div{background:var(--card);max-width:1200px;margin:auto;border-radius:12px;padding:20px;position:relative}
-#x{position:absolute;right:14px;top:10px;cursor:pointer;font-size:22px;color:var(--mute)}
+#x{position:absolute;right:14px;top:10px;cursor:pointer;font-size:22px;line-height:1;color:var(--mute);background:none;border:0;padding:4px 8px;border-radius:6px}#x:hover{background:var(--bg);color:var(--text,inherit)}
 .gantt{position:relative;border:1px solid var(--line);border-radius:6px;margin:8px 0 4px;background:var(--bg)}.lane{position:relative;height:24px;border-bottom:1px dashed var(--line)}
 .lane:last-child{border:0}.lane span{position:absolute;top:3px;height:18px;border-radius:3px;min-width:2px;opacity:.9}.lane label{position:absolute;left:4px;top:4px;font-size:11px;color:var(--mute);z-index:1;pointer-events:none}
 .axis{display:flex;justify-content:space-between;color:var(--mute);font-size:11px}.pre{white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;max-height:160px;overflow:auto;font-size:12px}
@@ -579,7 +579,7 @@ footer details{margin-top:14px}footer summary{cursor:pointer;color:var(--fg)}foo
 <header><h1>Claudon</h1>
 <nav id="nav"></nav><span style="flex:1"></span>
 <select id="fp"></select><input id="fq" placeholder="search prompts…" size="22"></header>
-<main id="view"></main><div id="modal"><div><span id="x">×</span><div id="mbody"></div></div></div>
+<main id="view"></main><div id="modal" role="dialog" aria-modal="true"><div><button id="x" aria-label="Close (Esc)" title="Close (Esc)">×</button><div id="mbody"></div></div></div>
 <footer id="foot"></footer>
 <script id="d" type="application/json">__DATA__</script>
 <script>
@@ -700,8 +700,10 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-
  const modal=()=>{if(cur&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
  if(el.dataset.more){const[id,step]=el.dataset.more.split('|');shown[id]=step=='all'?Infinity:(shown[id]||+step)+ +step;render();modal();return}
  if(el.dataset.t!=null){tab=+el.dataset.t;render()}else if(el.dataset.s){const[id,i]=el.dataset.s.split('|'),s=sorts[id];s.d=s.i==+i?-s.d:-1;s.i=+i;render();modal()}
- else{cur=el.dataset.task;delete shown.dt;delete shown.ds;$('#mbody').innerHTML=detail(cur);$('#modal').style.display='block'}});
-$('#x').onclick=()=>$('#modal').style.display='none';$('#modal').onclick=e=>{if(e.target.id=='modal')e.target.style.display='none'};
+ else{cur=el.dataset.task;delete shown.dt;delete shown.ds;$('#mbody').innerHTML=detail(cur);$('#modal').style.display='block';document.body.style.overflow='hidden';$('#modal').scrollTop=0}});
+const closeM=()=>{$('#modal').style.display='none';document.body.style.overflow=''};
+$('#x').onclick=closeM;$('#modal').onclick=e=>{if(e.target.id=='modal')closeM()};
+document.addEventListener('keydown',e=>{if(e.key=='Escape'&&$('#modal').style.display=='block')closeM()});
 $('#fp').onchange=$('#fq').oninput=()=>{for(const k in shown)delete shown[k];render()};render();  // a new filter starts tables at page 1
 </script></body></html>
 '''
