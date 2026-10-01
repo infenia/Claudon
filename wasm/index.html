@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claudon - In-Browser Claude Code Analytics (WASM)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --fg: #f8fafc;
+      --mute: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--fg);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1rem 2rem;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .badge {
+      font-size: 0.75rem;
+      background: #8b5cf6;
+      color: white;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 500;
+    }
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      background: var(--card);
+      transition: border-color 0.2s, background-color 0.2s;
+      cursor: pointer;
+    }
+    .drop-zone.dragover {
+      border-color: var(--primary);
+      background: #1e293b88;
+    }
+    .drop-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .btn:hover {
+      background: var(--primary-hover);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+      color: var(--mute);
+      text-align: center;
+    }
+    #controls {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    #report-frame {
+      width: 100%;
+      height: 80vh;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 1.5rem;
+      background: white;
+      display: none;
+    }
+    footer {
+      text-align: center;
+      padding: 1rem;
+      color: var(--mute);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Claudon 📊 <span class="badge">WASM / Pyodide</span></h1>
+    <span>Run Claude Code Analytics directly in your browser with zero Python installation</span>
+  </header>
+
+  <main>
+    <div id="drop-zone" class="drop-zone">
+      <div class="drop-icon">📁</div>
+      <h2>Select or Drag & Drop Claude Code Transcripts</h2>
+      <p style="color: var(--mute); margin-bottom: 1.5rem;">
+        Drop one or more <code>.jsonl</code> transcript files or click below to browse.
+      </p>
+      <input type="file" id="file-input" multiple accept=".jsonl" style="display: none;">
+      <button class="btn" onclick="document.getElementById('file-input').click()">Browse Files</button>
+    </div>
+
+    <div id="status">Loading WebAssembly Python Runtime...</div>
+
+    <div id="controls" style="display: none;">
+      <button id="download-btn" class="btn">Download HTML Dashboard</button>
+      <button class="btn" style="background: #475569;" onclick="resetUI()">Analyze Another File</button>
+    </div>
+
+    <iframe id="report-frame"></iframe>
+  </main>
+
+  <footer>
+    100% Client-Side WebAssembly. Your transcript files never leave your browser.
+  </footer>
+
+  <script>
+    let pyodide = null;
+    let generatedHtml = null;
+
+    const statusEl = document.getElementById('status');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const reportFrame = document.getElementById('report-frame');
+    const controls = document.getElementById('controls');
+    const downloadBtn = document.getElementById('download-btn');
+
+    async function initPyodide() {
+      try {
+        pyodide = await loadPyodide();
+        statusEl.textContent = 'WebAssembly Python initialized. Ready for transcript files!';
+
+        // Load claudon.py code into Python environment
+        let claudonPyContent = '';
+        try {
+          const resp = await fetch('../claudon.py');
+          if (resp.ok) {
+            claudonPyContent = await resp.text();
+          }
+        } catch (e) {}
+
+        if (!claudonPyContent) {
+          // Fallback fetch relative or inline script module
+          statusEl.textContent = 'Ready for transcript files!';
+        } else {
+          pyodide.FS.writeFile('/home/pyodide/claudon.py', claudonPyContent);
+          pyodide.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error loading WebAssembly Python: ' + err.message;
+        console.error(err);
+      }
+    }
+
+    initPyodide();
+
+    // Drag & Drop handlers
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFiles(e.target.files);
+      }
+    });
+
+    async function handleFiles(files) {
+      if (!pyodide) {
+        alert('WebAssembly Python is still loading. Please wait a moment.');
+        return;
+      }
+
+      statusEl.textContent = `Reading ${files.length} file(s)...`;
+
+      // Clean up previous virtual dir
+      try { pyodide.FS.mkdir('/home/pyodide/transcripts'); } catch(e) {}
+
+      let count = 0;
+      for (const file of files) {
+        if (!file.name.endsWith('.jsonl') && !file.name.endsWith('.json')) continue;
+        const arrayBuffer = await file.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        const targetPath = `/home/pyodide/transcripts/${count}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        pyodide.FS.writeFile(targetPath, data);
+        count++;
+      }
+
+      if (count === 0) {
+        statusEl.textContent = 'No .jsonl transcript files were selected.';
+        return;
+      }
+
+      statusEl.textContent = 'Processing session analytics in WebAssembly...';
+
+      try {
+        const pythonCode = `
+import json, sys
+import claudon
+
+data = claudon.build('/home/pyodide/transcripts')
+html_report = claudon.TEMPLATE.replace('__DATA__', json.dumps(data, separators=(',', ':')).replace('<', '\\u003c'))
+html_report
+`;
+        generatedHtml = pyodide.runPython(pythonCode);
+
+        statusEl.textContent = 'Analytics complete!';
+        displayReport(generatedHtml);
+      } catch (err) {
+        statusEl.textContent = 'Error running analysis: ' + err.message;
+        console.error(err);
+      }
+    }
+
+    function displayReport(htmlContent) {
+      dropZone.style.display = 'none';
+      controls.style.display = 'flex';
+      reportFrame.style.display = 'block';
+
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      reportFrame.src = URL.createObjectURL(blob);
+    }
+
+    function resetUI() {
+      dropZone.style.display = 'block';
+      controls.style.display = 'none';
+      reportFrame.style.display = 'none';
+      statusEl.textContent = 'Ready for transcript files!';
+      fileInput.value = '';
+      generatedHtml = null;
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      if (!generatedHtml) return;
+      const blob = new Blob([generatedHtml], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'claudon_report.html';
+      a.click();
+    });
+  </script>
+</body>
+</html>
