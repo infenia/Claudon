@@ -4,7 +4,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
 
 # Add root directory to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -12,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import claudon
 
 
+@unittest.skipUnless(PLAYWRIGHT_AVAILABLE, "Playwright is not installed")
 class TestClaudonUI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
