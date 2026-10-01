@@ -5,7 +5,6 @@ Usage:
     python scripts/build_nuitka.py [--onefile] [--output-dir DIST_DIR]
 """
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
