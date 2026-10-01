@@ -7,7 +7,7 @@ PATH: a ~/.claude dir, its projects/ dir, one project dir, or a single .jsonl
 (default $CLAUDE_CONFIG_DIR, else ~/.claude).
 Stdlib only, single file. Everything is derived from the transcripts; see the notes in the dashboard footer.
 """
-import argparse, bisect, collections, datetime as dt, json, os, re, sys, webbrowser
+import argparse, bisect, collections, datetime as dt, json, math, os, re, sys, webbrowser
 from pathlib import Path
 
 __version__ = '0.1.0'
@@ -60,12 +60,33 @@ def ts_of(r):
         return None
 
 
+def _finite(s):
+    f = float(s)
+    if not math.isfinite(f):
+        raise ValueError(f'non-finite number {s}')
+    return f
+
+
+def _reject(s):
+    raise ValueError(f'invalid JSON constant {s}')
+
+
+def loads(text):
+    """json.loads without NaN/Infinity (or floats that overflow to inf): browsers' JSON.parse rejects them."""
+    return json.loads(text, parse_float=_finite, parse_constant=_reject)
+
+
+def num(x):
+    """a usable non-negative count/amount, else 0 (strings, bools, negatives and garbage count as 0)"""
+    return x if isinstance(x, (int, float)) and not isinstance(x, bool) and x > 0 else 0
+
+
 def load(path):
     out = []
-    with open(path, encoding='utf-8', errors='replace') as f:
+    with open(path, encoding='utf-8-sig', errors='replace') as f:     # -sig: tolerate a UTF-8 BOM
         for line in f:
             try:
-                r = json.loads(line)
+                r = loads(line)
             except ValueError:
                 continue
             if isinstance(r, dict):                     # normalise shape so callers can index freely
@@ -79,14 +100,17 @@ def load(path):
 def text_of(c):
     if isinstance(c, str):
         return c
-    return ' '.join(b.get('text', '') for b in c or [] if isinstance(b, dict) and b.get('type') == 'text')
+    if not isinstance(c, list):
+        return ''
+    return ' '.join(str(b.get('text', '')) for b in c if isinstance(b, dict) and b.get('type') == 'text')
 
 
 def prompt_text(r):
     """Human prompt that starts a task, else None."""
     if r.get('type') != 'user' or r.get('isSidechain') or r.get('isMeta') or r.get('isCompactSummary'):
         return None
-    if r.get('turnOrigin') == 'task_notification' or (r.get('origin') or {}).get('kind') == 'task-notification':
+    origin = r.get('origin') if isinstance(r.get('origin'), dict) else {}
+    if r.get('turnOrigin') == 'task_notification' or origin.get('kind') == 'task-notification':
         return None
     c = (r.get('message') or {}).get('content')
     if isinstance(c, list) and any(isinstance(b, dict) and b.get('type') == 'tool_result' for b in c):
@@ -94,7 +118,8 @@ def prompt_text(r):
     t = text_of(c).strip()
     if not t or t.startswith(SKIP_PREFIX):
         return None
-    m = re.search(r'<command-name>/?([\w:-]+)', t)    # tag order varies: command-message may come first
+    # only a record that *is* a slash command (either tag may come first), not a prompt quoting the markup
+    m = re.search(r'<command-name>/?([\w:-]+)', t) if t.startswith(('<command-name>', '<command-message>')) else None
     if m:
         if m.group(1) in SKIP_CMDS:
             return None
@@ -108,26 +133,28 @@ TOKEN_KEYS = ('input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache
 
 def toks(d):
     """usage-shaped dict -> dict(i, o, cr, c5, c1) with the cache-write split into 5m / 1h."""
-    cc = d.get('cache_creation') or {}
-    cc1, cc5 = cc.get('ephemeral_1h_input_tokens') or 0, cc.get('ephemeral_5m_input_tokens') or 0
-    total_cc = d.get('cache_creation_input_tokens') or 0
+    cc = d.get('cache_creation') if isinstance(d.get('cache_creation'), dict) else {}
+    cc1, cc5 = num(cc.get('ephemeral_1h_input_tokens')), num(cc.get('ephemeral_5m_input_tokens'))
+    total_cc = num(d.get('cache_creation_input_tokens'))
     if cc1 + cc5 != total_cc:
-        cc5 = max(0, total_cc - cc1)
-    return dict(i=d.get('input_tokens') or 0, o=d.get('output_tokens') or 0,
-                cr=d.get('cache_read_input_tokens') or 0, c5=cc5, c1=cc1)
+        cc1 = min(cc1, total_cc)
+        cc5 = total_cc - cc1
+    return dict(i=num(d.get('input_tokens')), o=num(d.get('output_tokens')),
+                cr=num(d.get('cache_read_input_tokens')), c5=cc5, c1=cc1)
 
 
 def usage_of(recs):
-    usages = [r['message'].get('usage') or {} for r in recs]
-    best = max(usages, key=lambda u: sum(u.get(k) or 0 for k in TOKEN_KEYS))
+    usages = [u if isinstance(u := r['message'].get('usage'), dict) else {} for r in recs]
+    best = max(usages, key=lambda u: sum(num(u.get(k)) for k in TOKEN_KEYS))
     # streamed records accumulate iterations[]; the longest list is the complete one
-    its = [i for i in max((u.get('iterations') or [] for u in usages), key=len) if isinstance(i, dict)]
-    if not sum(best.get(k) or 0 for k in TOKEN_KEYS):    # some logs keep real numbers only in iterations[]
+    its = max([u['iterations'] for u in usages if isinstance(u.get('iterations'), list)] or [[]], key=len)
+    its = [i for i in its if isinstance(i, dict)]
+    if not sum(num(best.get(k)) for k in TOKEN_KEYS):    # some logs keep real numbers only in iterations[]
         main = [i for i in its if i.get('type', 'message') == 'message']
-        best = {k: sum(i.get(k) or 0 for i in main) for k in TOKEN_KEYS} | {'cache_creation': main[-1].get('cache_creation') if main else None}
-    think = max((u.get('output_tokens_details') or {}).get('thinking_tokens') or 0 for u in usages)
+        best = {k: sum(num(i.get(k)) for i in main) for k in TOKEN_KEYS} | {'cache_creation': main[-1].get('cache_creation') if main else None}
+    think = max(num(d.get('thinking_tokens')) if isinstance(d := u.get('output_tokens_details'), dict) else 0 for u in usages)
     # advisor sub-calls are billed on top of the top-level usage, which covers only the executor
-    adv = [(i.get('model') or '?', toks(i)) for i in its if i.get('type') == 'advisor_message']
+    adv = [(i['model'] if isinstance(i.get('model'), str) else '?', toks(i)) for i in its if i.get('type') == 'advisor_message']
     return toks(best) | dict(think=think, adv=adv, fast=best.get('speed') == 'fast')
 
 
@@ -165,6 +192,14 @@ def tok_sum(calls, k):
     return sum(c['u'][k] + sum(au[k] for _, au, _ in c['adv']) for c in calls)
 
 
+def split(wall, u_m, u_t, u_a, u_u):
+    """Rounded time split whose parts never sum past the rounded wall time."""
+    parts = dict(model_s=round(u_m, 2), tool_s=round(u_t - u_m, 2), agent_s=round(u_a - u_t, 2), user_s=round(u_u - u_a, 2))
+    busy = round(sum(parts.values()), 2)
+    w = max(round(wall, 2), busy)
+    return dict(wall=w, wait_s=round(w - busy, 2), **parts)
+
+
 def analyze_session(sid, proj, files, seen_msgs):
     """files: [(path, is_sub)]. Returns (session dict, [task dicts])."""
     recs = []
@@ -179,14 +214,14 @@ def analyze_session(sid, proj, files, seen_msgs):
     # --- API calls (assistant records are streamed one content block per record) ---
     by_msg = collections.OrderedDict()
     for r in recs:
-        if r['type'] == 'assistant' and r['_ts'] and r['message'].get('id') and r['message'].get('model') != '<synthetic>':
+        if r['type'] == 'assistant' and r['_ts'] and isinstance(r['message'].get('id'), str) and r['message'].get('model') != '<synthetic>':
             by_msg.setdefault(r['message']['id'], []).append(r)
     calls, results = [], {}
     for r in recs:                                      # tool_result lookup
         c = (r.get('message') or {}).get('content')
         if r['type'] == 'user' and isinstance(c, list) and r['_ts']:
             for b in c:
-                if isinstance(b, dict) and b.get('type') == 'tool_result':
+                if isinstance(b, dict) and b.get('type') == 'tool_result' and isinstance(b.get('tool_use_id'), str):
                     stopped = bool(b.get('is_error')) and bool(USER_STOP.search(str(b.get('content'))[:300]))
                     results[b.get('tool_use_id')] = (r['_ts'], bool(b.get('is_error')) and not stopped, stopped)
     for mid, rs in by_msg.items():
@@ -206,15 +241,18 @@ def analyze_session(sid, proj, files, seen_msgs):
         start = min(start or first['_ts'], first['_ts'])
         prev, think_s, tools = start, 0.0, []
         for r in rs:
-            blocks = r['message'].get('content') or []
+            blocks = r['message'].get('content') if isinstance(r['message'].get('content'), list) else []
             if any(b.get('type') == 'thinking' for b in blocks if isinstance(b, dict)):
                 think_s += r['_ts'] - prev
             prev = r['_ts']
             for b in blocks:
                 if isinstance(b, dict) and b.get('type') == 'tool_use':
-                    tools.append(dict(id=b.get('id'), name=b.get('name', '?'), ts=r['_ts'], desc=tool_desc(b.get('input'))))
+                    tid, name = b.get('id'), b.get('name')
+                    tools.append(dict(id=tid if isinstance(tid, str) else None, name=name if isinstance(name, str) and name else '?',
+                                      ts=r['_ts'], desc=tool_desc(b.get('input'))))
         u = usage_of(rs)
         model = rs[0]['message'].get('model')
+        model = model if isinstance(model, str) else None
         mix, est = cost_mix(u, model)
         adv = []
         for am, au in u['adv']:
@@ -251,13 +289,14 @@ def analyze_session(sid, proj, files, seen_msgs):
             T[idx(r['_ts'])]['ends'].append(r['_ts'])
         if r['type'] == 'system' and r.get('subtype') == 'compact_boundary' and r['_ts']:
             m = r.get('compactMetadata') or {}
-            T[idx(r['_ts'])]['compacts'].append((r['_ts'], (m.get('durationMs') or 0) / 1000, m.get('preTokens') or 0, m.get('postTokens') or 0))
+            m = m if isinstance(m, dict) else {}
+            T[idx(r['_ts'])]['compacts'].append((r['_ts'], num(m.get('durationMs')) / 1000, num(m.get('preTokens')), num(m.get('postTokens'))))
     title = ''
     for r in recs:
         if r['type'] in ('ai-title', 'custom-title'):
             title = r.get('aiTitle') or r.get('customTitle') or title
-    cwd = next((r['cwd'] for r in recs if r.get('cwd')), '')
-    reported = max((r.get('totalCostUSD') or 0 for r in recs if r['type'] == 'cost-state'), default=0)
+    cwd = next((r['cwd'] for r in recs if isinstance(r.get('cwd'), str) and r['cwd']), '')
+    reported = max((num(r.get('totalCostUSD')) for r in recs if r['type'] == 'cost-state'), default=0)
 
     tasks = []
     for n, t in enumerate(T):
@@ -265,7 +304,7 @@ def analyze_session(sid, proj, files, seen_msgs):
         if not cs:
             continue
         t0, t1 = t['start'], max(max(t['ends']), max(c['end'] for c in cs))
-        wall = max(t1 - t0, 0.001)
+        wall = max(t1 - t0, 0.01)                       # stays > 0 after round(wall, 2)
         clip = lambda a, b: (max(a, t0), min(b, t1))
         mi, ti, ai, ui, tool_stats, tcalls, segs = [], [], [], [], {}, [], []
         for c in cs:
@@ -304,9 +343,7 @@ def analyze_session(sid, proj, files, seen_msgs):
             ctx = ctx[::len(ctx) // 200 + 1]
         tcalls.sort(key=lambda x: -x[1])
         tasks.append(dict(
-            id=f'{sid}#{n}', sid=sid, proj=proj, title=title, prompt=t['prompt'][:600], start=t0, wall=round(wall, 2),
-            model_s=round(u_m, 2), tool_s=round(u_t - u_m, 2), agent_s=round(u_a - u_t, 2), user_s=round(u_u - u_a, 2),
-            wait_s=round(max(0, wall - u_u), 2),
+            id=f'{sid}#{n}', sid=sid, proj=proj, title=title, prompt=t['prompt'][:600], start=t0, **split(wall, u_m, u_t, u_a, u_u),
             calls=len(main), sub_calls=len(cs) - len(main), tools=sum(len(c['tools']) for c in cs),
             think_calls=sum(1 for c in cs if c['think_s'] > 0), think_s=round(sum(c['think_s'] for c in cs), 2),
             think_tok=sum(c['u']['think'] for c in cs), out_tok=tok_sum(cs, 'o'),
@@ -315,7 +352,7 @@ def analyze_session(sid, proj, files, seen_msgs):
             sub_cost=round(sum(c['cost'] for c in cs if c['sub']), 5),
             est=any(c['est'] for c in cs), ctx_max=max(c['ctx'] for c in cs), compacts=[[round(ct - t0, 1), dur, pre, post] for ct, dur, pre, post in t['compacts']],
             models=models, tool_stats=tool_stats, slow=tcalls[:6], segs=segs, ctx=ctx,
-            efforts=sorted({c['eff'] for c in cs if c['eff']})))
+            efforts=sorted({str(c['eff']) for c in cs if c['eff']})))
     if not tasks:
         return None, []
     sess = dict(id=sid, proj=proj, cwd=cwd, title=title, start=min(t['start'] for t in tasks),
@@ -329,21 +366,25 @@ def discover(root):
     if root.is_file():
         return root.parent, [root]
     base = root / 'projects' if (root / 'projects').is_dir() else root
-    return base, sorted(p for p in base.rglob('*.jsonl') if 'tool-results' not in p.parts)
+    # is_file(): skips directories named *.jsonl and broken symlinks
+    return base, sorted(p for p in base.rglob('*.jsonl') if 'tool-results' not in p.parts and p.is_file())
 
 
 def first_session_id(path):
     """sessionId of the first record that has one; stops reading at the first match."""
-    with open(path, encoding='utf-8', errors='replace') as f:
-        for line in f:
-            if 'sessionId' not in line:
-                continue
-            try:
-                r = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(r, dict) and r.get('sessionId'):
-                return r['sessionId']
+    try:
+        with open(path, encoding='utf-8-sig', errors='replace') as f:
+            for line in f:
+                if 'sessionId' not in line:
+                    continue
+                try:
+                    r = loads(line)
+                except ValueError:
+                    continue
+                if isinstance(r, dict) and isinstance(r.get('sessionId'), str):
+                    return r['sessionId']
+    except OSError:
+        pass
     return None
 
 
@@ -362,13 +403,20 @@ def build(root):
     for p in paths:
         parts = p.relative_to(base).parts
         sub = 'subagents' in parts
-        sid = parts[parts.index('subagents') - 1] if sub else p.stem
+        i = parts.index('subagents') if sub else None
+        sid = (parts[i - 1] if i else base.name) if sub else p.stem   # i == 0: PATH is the <session>/ dir itself
         depth = parts.index('subagents') - 1 if sub else len(parts) - 1     # dirs above the session
         proj = parts[0] if depth >= 1 else base.name                         # base may itself be one project
         groups[(proj, sid)].append((p, sub))
-    sessions, tasks, seen = [], [], set()
+    sessions, tasks, seen, keys = [], [], set(), set()
     for (proj, sid), files in sorted(groups.items(), key=copy_last):
-        s, ts = analyze_session(sid, proj, sorted(files, key=lambda f: f[1]), seen)
+        key = sid if sid not in keys else f'{sid}@{proj}'    # same session id under two projects: keep task ids unique
+        keys.add(key)
+        try:
+            s, ts = analyze_session(key, proj, sorted(files, key=lambda f: f[1]), seen)
+        except Exception as e:                              # one unreadable/malformed session must not sink the report
+            print(f'warning: skipped session {sid} in {proj}: {type(e).__name__}: {e}', file=sys.stderr)
+            continue
         if s:
             sessions.append(s); tasks += ts
     for s in sessions:                                 # friendlier project label from cwd
@@ -385,11 +433,11 @@ def redact(d):
     names, servers, sids = {}, {}, {}
 
     def tool(n):                                    # mcp__<server>__<tool>: server names can be internal
-        parts = n.split('__')
-        if len(parts) < 3 or parts[0] != 'mcp':
+        parts = n.split('__') if isinstance(n, str) else []
+        if len(parts) < 2 or parts[0] != 'mcp':
             return n
-        server = '__'.join(parts[1:-1])             # server names may contain '__'; keep only the tool part
-        return f"mcp__{servers.setdefault(server, f'server-{len(servers) + 1}')}__{parts[-1]}"
+        server, rest = ('__'.join(parts[1:-1]), f'__{parts[-1]}') if len(parts) > 2 else (parts[1], '')
+        return f"mcp__{servers.setdefault(server, f'server-{len(servers) + 1}')}{rest}"     # server names may contain '__'
 
     for t in d['tasks']:
         t['proj'] = names.setdefault(t['proj'], f'project-{len(names) + 1}')
@@ -409,7 +457,8 @@ def redact(d):
 
 def render_html(data):
     # escape '<' so transcript text like '</script>' can't close the embedded JSON block
-    return TEMPLATE.replace('__DATA__', json.dumps(data, separators=(',', ':')).replace('<', '\\u003c'))
+    payload = json.dumps(data, separators=(',', ':'), allow_nan=False)     # NaN would break JSON.parse
+    return TEMPLATE.replace('__DATA__', payload.replace('<', '\\u003c'))
 
 
 def config_dir():
@@ -419,13 +468,14 @@ def config_dir():
 def load_pricing(path):
     """--pricing file: {"model-substring": [in, out, cache_read, write_5m, write_1h]} in $/MTok."""
     try:
-        raw = json.loads(Path(path).read_text(encoding='utf-8'))
+        raw = loads(Path(path).read_text(encoding='utf-8-sig'))
         if not isinstance(raw, dict):
             raise ValueError('expected a JSON object')
         out = {}
         for k, v in raw.items():
-            if not (isinstance(v, list) and len(v) == 5 and all(isinstance(x, (int, float)) for x in v)):
-                raise ValueError(f'{k!r}: expected a list of 5 numbers')
+            if not (isinstance(v, list) and len(v) == 5
+                    and all(isinstance(x, (int, float)) and not isinstance(x, bool) and 0 <= x < 1e6 for x in v)):
+                raise ValueError(f'{k!r}: expected a list of 5 prices, each a number from 0 to 1e6 $/MTok')
             out[k.lower()] = tuple(v)
         return out
     except (OSError, ValueError) as e:
@@ -476,8 +526,11 @@ def main():
     if a.redact:
         redact(data)
     out = Path(a.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_html(data), encoding='utf-8')
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_html(data), encoding='utf-8')
+    except OSError as e:
+        sys.exit(f'cannot write {out}: {e}')
     print(f'{len(data["sessions"])} sessions, {len(data["tasks"])} tasks from {data["files"]} files -> {a.out}')
     if a.open:
         webbrowser.open(Path(a.out).resolve().as_uri())
@@ -553,13 +606,13 @@ const kpi=(k,v,s='')=>`<div class="card"><div class="k">${k}</div><div class="v"
 const A=a=>({wall:sum(a,t=>t.wall),model:sum(a,t=>t.model_s),tool:sum(a,t=>t.tool_s),agent:sum(a,t=>t.agent_s),user:sum(a,t=>t.user_s),wait:sum(a,t=>t.wait_s),
  calls:sum(a,t=>t.calls),sub:sum(a,t=>t.sub_calls),tools:sum(a,t=>t.tools),cost:sum(a,t=>t.cost),think:sum(a,t=>t.think_s),thinkTok:sum(a,t=>t.think_tok),
  out:sum(a,t=>t.out_tok),inp:sum(a,t=>t.in_tok),cr:sum(a,t=>t.cr_tok),cc:sum(a,t=>t.cc_tok)});
-function toolAgg(a){const m={};a.forEach(t=>Object.entries(t.tool_stats).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0]);x[1]+=v[0];x[2]+=v[1];x[3]+=v[2];x[4]=Math.max(x[4],v[3]);x[5]+=v[4]}));return Object.values(m)}
-function modelAgg(a){const m={};a.forEach(t=>Object.entries(t.models).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0,0,0,0,0]);for(let i=0;i<9;i++)x[i+1]+=v[i]}));return Object.values(m)}
+function toolAgg(a){const m=Object.create(null);a.forEach(t=>Object.entries(t.tool_stats).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0]);x[1]+=v[0];x[2]+=v[1];x[3]+=v[2];x[4]=Math.max(x[4],v[3]);x[5]+=v[4]}));return Object.values(m)}
+function modelAgg(a){const m=Object.create(null);a.forEach(t=>Object.entries(t.models).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0,0,0,0,0]);for(let i=0;i<9;i++)x[i+1]+=v[i]}));return Object.values(m)}
 
 function overview(){const a=A(F),sess=new Set(F.map(t=>t.sid)).size,cacheHit=a.cr/Math.max(1,a.cr+a.inp+a.cc);
  const days={};F.forEach(t=>days[date(t.start)]=(days[date(t.start)]||0)+t.cost);const dk=Object.keys(days).sort(),mx=Math.max(...Object.values(days),.01);
  const dist=(h,f,fmt)=>`<tr><td>${h}</td><td class="n">${fmt(Q(F.map(f),.5))}</td><td class="n">${fmt(Q(F.map(f),.9))}</td><td class="n">${fmt(Q(F.map(f),1))}</td></tr>`;
- const byP={};F.forEach(t=>(byP[t.proj]=byP[t.proj]||[]).push(t));
+ const byP=Object.create(null);F.forEach(t=>(byP[t.proj]=byP[t.proj]||[]).push(t));
  return `<div class="grid">${kpi('Tasks',F.length,sess+' sessions')}${kpi('API turns',N(a.calls),N(a.sub)+' by subagents')}${kpi('Tool calls',N(a.tools))}
  ${kpi('Wall time',T(a.wall),'sum over tasks')}${kpi('Model time',T(a.model),P(a.model/a.wall)+' of wall')}${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time')}
  ${kpi('Est. cost',$$(a.cost),$$(a.cost/F.length)+' / task')}${kpi('Output tokens',N(a.out),'thinking '+N(a.thinkTok)+' (where reported)')}${kpi('Cache hit',P(cacheHit),'of input-side tokens')}</div>

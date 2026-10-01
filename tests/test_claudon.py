@@ -22,6 +22,10 @@ def assistant(ts, mid, model="claude-sonnet-5-5", content=()):
                         "content": list(content)}}
 
 
+def strict_json(const):
+    raise ValueError(f"{const} is not valid JSON")
+
+
 class TestClaudon(unittest.TestCase):
 
     def setUp(self):
@@ -176,6 +180,47 @@ class TestClaudon(unittest.TestCase):
         self.assertIsNone(claudon.prompt_text(cmd("plugin")))         # local-only, any tag order
         self.assertEqual(claudon.prompt_text(cmd("review", " PR 12 ")), "/review PR 12")
         self.assertEqual(claudon.prompt_text(cmd("init")), "/init")
+
+    def test_hostile_inputs(self):
+        cases = {
+            "bom": ("\ufeff" + json.dumps(user(0, "real prompt")), "real prompt"),
+            "nan record dropped": ('{"type":"cost-state","totalCostUSD":Infinity}', "hi"),
+            "quoted command markup": (json.dumps(user(0, "explain <command-name>/clear</command-name> please")),
+                                      "explain <command-name>/clear</command-name> please"),
+        }
+        for name, (first, prompt) in cases.items():
+            with self.subTest(name):
+                lines = [first] + ([] if name != "nan record dropped" else [user(0, "hi")]) + [assistant(5, "m1")]
+                data = claudon.build(str(self.write(f"{name}/proj/s.jsonl", lines)))
+                self.assertEqual(data["tasks"][0]["prompt"], prompt)
+                html = claudon.render_html(data)
+                payload = html.split('<script id="d" type="application/json">', 1)[1].split("</script>", 1)[0]
+                json.loads(payload, parse_constant=strict_json)    # browsers' JSON.parse rejects NaN/Infinity
+
+    def test_bad_numbers_and_single_record_tasks(self):
+        a = assistant(5, "m1"); a["message"]["usage"] = {"input_tokens": -10**6, "output_tokens": "5"}
+        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(5, "hi"), a])))["tasks"][0]
+        self.assertEqual(t["cost"], 0)
+        self.assertGreater(t["wall"], 0)
+
+    def test_unreadable_session_is_skipped_not_fatal(self):
+        self.write("p/proj/good.jsonl", [user(0, "hi"), assistant(5, "m1")])
+        (self.tmp_path / "p/proj/dir.jsonl").mkdir()
+        self.write("p/proj/bad.jsonl", [user(0, "x"), assistant(5, "m2")])
+        real = claudon.analyze_session
+        def flaky(sid, *a):
+            if sid == "bad":
+                raise OSError("Permission denied")
+            return real(sid, *a)
+        with mock.patch.object(claudon, "analyze_session", flaky), mock.patch("sys.stderr"):
+            tasks = claudon.build(str(self.tmp_path / "p"))["tasks"]
+        self.assertEqual([t["sid"] for t in tasks], ["good"])
+
+    def test_same_session_id_in_two_projects_gets_distinct_task_ids(self):
+        for proj in ("projA", "projB"):
+            self.write(f"p/{proj}/s1.jsonl", [user(0, proj), assistant(5, f"m-{proj}")])
+        ids = [t["id"] for t in claudon.build(str(self.tmp_path / "p"))["tasks"]]
+        self.assertEqual(len(set(ids)), 2)
 
     def test_shared_history_credited_to_original_not_copy(self):
         orig = "11111111-aaaa"
