@@ -120,7 +120,10 @@
       border-top: 1px solid var(--border);
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+  <!-- SRI pins pyodide.js only; the runtime files it loads come from the same pinned version directory -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"
+          integrity="sha384-Zt+txBUVind9SDPtCx7HTNK8jiZiFKX/Cm3Ml1tEnAmGKO/QSRn1VqM+Vr45Cbrj"
+          crossorigin="anonymous"></script>
 </head>
 <body>
   <header>
@@ -133,10 +136,13 @@
       <div class="drop-icon">📁</div>
       <h2>Select or Drag & Drop Claude Code Transcripts</h2>
       <p style="color: var(--mute); margin-bottom: 1.5rem;">
-        Drop one or more <code>.jsonl</code> transcript files or click below to browse.
+        Drop one or more <code>.jsonl</code> transcript files, or pick your <code>~/.claude/projects</code>
+        folder to keep project grouping and subagent transcripts.
       </p>
       <input type="file" id="file-input" multiple accept=".jsonl" style="display: none;">
+      <input type="file" id="dir-input" webkitdirectory style="display: none;">
       <button class="btn" onclick="document.getElementById('file-input').click()">Browse Files</button>
+      <button class="btn" onclick="document.getElementById('dir-input').click()">Browse Folder</button>
     </div>
 
     <div id="status">Loading WebAssembly Python Runtime...</div>
@@ -146,54 +152,46 @@
       <button class="btn" style="background: #475569;" onclick="resetUI()">Analyze Another File</button>
     </div>
 
-    <iframe id="report-frame"></iframe>
+    <iframe id="report-frame" sandbox="allow-scripts"></iframe>
   </main>
 
   <footer>
-    100% Client-Side WebAssembly. Your transcript files never leave your browser.
+    Transcripts are processed locally in your browser; only the Python runtime is downloaded (from jsDelivr).
   </footer>
 
   <script>
+    const ROOT = '/home/pyodide/transcripts';
     let pyodide = null;
     let generatedHtml = null;
 
     const statusEl = document.getElementById('status');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
+    const dirInput = document.getElementById('dir-input');
     const reportFrame = document.getElementById('report-frame');
     const controls = document.getElementById('controls');
     const downloadBtn = document.getElementById('download-btn');
 
     async function initPyodide() {
       try {
-        pyodide = await loadPyodide();
-        statusEl.textContent = 'WebAssembly Python initialized. Ready for transcript files!';
-
-        // Load claudon.py code into Python environment
-        let claudonPyContent = '';
-        try {
-          const resp = await fetch('../claudon.py');
-          if (resp.ok) {
-            claudonPyContent = await resp.text();
-          }
-        } catch (e) {}
-
-        if (!claudonPyContent) {
-          // Fallback fetch relative or inline script module
-          statusEl.textContent = 'Ready for transcript files!';
-        } else {
-          pyodide.FS.writeFile('/home/pyodide/claudon.py', claudonPyContent);
-          pyodide.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
-        }
+        const resp = await fetch('../claudon.py');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const source = await resp.text();
+        const py = await loadPyodide();
+        py.FS.writeFile('/home/pyodide/claudon.py', source);
+        py.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
+        pyodide = py;
+        statusEl.textContent = 'Ready for transcript files!';
       } catch (err) {
-        statusEl.textContent = 'Error loading WebAssembly Python: ' + err.message;
+        // file:// pages can't fetch ../claudon.py; the page must be served over HTTP
+        statusEl.textContent = `Could not load claudon.py (${err.message}). Serve the repository over HTTP, ` +
+          'e.g. run "python3 -m http.server" in the repo root and open http://localhost:8000/wasm/';
         console.error(err);
       }
     }
 
     initPyodide();
 
-    // Drag & Drop handlers
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropZone.classList.add('dragover');
@@ -206,52 +204,62 @@
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
-        handleFiles(e.dataTransfer.files);
-      }
+      if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
     });
 
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length) {
-        handleFiles(e.target.files);
-      }
-    });
+    for (const input of [fileInput, dirInput]) {
+      input.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFiles(e.target.files);
+      });
+    }
+
+    // keep folder structure (project dirs, <session>/subagents/) but never escape ROOT;
+    // drop the picked folder's own name so ~/.claude, its projects/ dir or one project all map like the CLI
+    function targetPath(file, used) {
+      const rel = file.webkitRelativePath ? file.webkitRelativePath.split('/').slice(1) : [file.name];
+      const parts = rel
+        .filter(p => p && p !== '.' && p !== '..')
+        .map(p => p.replace(/[^a-zA-Z0-9._-]/g, '_'));
+      let path = `${ROOT}/${parts.join('/')}`;
+      for (let i = 1; used.has(path); i++) path = `${ROOT}/${parts.slice(0, -1).concat(`${i}_${parts.at(-1)}`).join('/')}`;
+      used.add(path);
+      return path;
+    }
 
     async function handleFiles(files) {
       if (!pyodide) {
-        alert('WebAssembly Python is still loading. Please wait a moment.');
+        statusEl.textContent = 'The Python runtime is not ready yet: ' + statusEl.textContent;
         return;
       }
-
-      statusEl.textContent = `Reading ${files.length} file(s)...`;
-
-      // Clean up previous virtual dir
-      try { pyodide.FS.mkdir('/home/pyodide/transcripts'); } catch(e) {}
-
-      let count = 0;
-      for (const file of files) {
-        if (!file.name.endsWith('.jsonl') && !file.name.endsWith('.json')) continue;
-        const arrayBuffer = await file.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
-        const targetPath = `/home/pyodide/transcripts/${count}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        pyodide.FS.writeFile(targetPath, data);
-        count++;
-      }
-
-      if (count === 0) {
+      const transcripts = [...files].filter(f => f.name.endsWith('.jsonl'));
+      if (!transcripts.length) {
         statusEl.textContent = 'No .jsonl transcript files were selected.';
         return;
       }
+      statusEl.textContent = `Reading ${transcripts.length} file(s)...`;
+
+      pyodide.runPython(`import os, shutil; shutil.rmtree('${ROOT}', ignore_errors=True); os.makedirs('${ROOT}')`);
+      const used = new Set();
+      for (const file of transcripts) {
+        const path = targetPath(file, used);
+        pyodide.FS.mkdirTree(path.slice(0, path.lastIndexOf('/')));
+        pyodide.FS.writeFile(path, new Uint8Array(await file.arrayBuffer()));
+        pyodide.FS.utime(path, file.lastModified, file.lastModified);   // claudon orders sessions by mtime
+      }
 
       statusEl.textContent = 'Processing session analytics in WebAssembly...';
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r)));   // let the status paint first
 
       try {
-        const pythonCode = `
+        generatedHtml = pyodide.runPython(`
 import claudon
-claudon.render_html(claudon.build('/home/pyodide/transcripts'))
-`;
-        generatedHtml = pyodide.runPython(pythonCode);
-
+data = claudon.build('${ROOT}')
+claudon.render_html(data) if data['tasks'] else ''
+`);
+        if (!generatedHtml) {
+          statusEl.textContent = 'No analysable sessions found in the selected files.';
+          return;
+        }
         statusEl.textContent = 'Analytics complete!';
         displayReport(generatedHtml);
       } catch (err) {
@@ -264,27 +272,26 @@ claudon.render_html(claudon.build('/home/pyodide/transcripts'))
       dropZone.style.display = 'none';
       controls.style.display = 'flex';
       reportFrame.style.display = 'block';
-
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      reportFrame.src = URL.createObjectURL(blob);
+      reportFrame.srcdoc = htmlContent;
     }
 
     function resetUI() {
       dropZone.style.display = 'block';
       controls.style.display = 'none';
       reportFrame.style.display = 'none';
+      reportFrame.removeAttribute('srcdoc');
       statusEl.textContent = 'Ready for transcript files!';
-      fileInput.value = '';
+      fileInput.value = dirInput.value = '';
       generatedHtml = null;
     }
 
     downloadBtn.addEventListener('click', () => {
       if (!generatedHtml) return;
-      const blob = new Blob([generatedHtml], { type: 'text/html' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = URL.createObjectURL(new Blob([generatedHtml], { type: 'text/html' }));
       a.download = 'claudon_report.html';
       a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 0);
     });
   </script>
 </body>
