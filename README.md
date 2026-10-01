@@ -8,9 +8,9 @@ One command turns your session logs into an interactive HTML dashboard.<br>
 100% local · zero dependencies · nothing leaves your machine.
 
 [![CI](https://github.com/infenia/claudon/actions/workflows/ci.yml/badge.svg)](https://github.com/infenia/claudon/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/claudon)](https://pypi.org/project/claudon/)
+[![PyPI](https://img.shields.io/pypi/v/claudon?label=PyPI)](https://pypi.org/project/claudon/)
 [![npm](https://img.shields.io/npm/v/@infenia/claudon)](https://www.npmjs.com/package/@infenia/claudon)
-[![Python](https://img.shields.io/pypi/pyversions/claudon)](https://pypi.org/project/claudon/)
+[![Python](https://img.shields.io/pypi/pyversions/claudon?label=Python)](https://pypi.org/project/claudon/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ```bash
