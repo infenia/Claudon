@@ -687,7 +687,7 @@ function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=
  $('#view').innerHTML=F.length?views[tab]():'<div class="card">No tasks match.</div>'}
 const pl=(n,w)=>`${N(n)} ${w}${n==1?'':'s'}`;
 const rates=Object.entries(D.price).sort(([a],[b])=>a.localeCompare(b)).map(([k,p])=>`<tr><td><code>${esc(k)}</code></td>${p.map(x=>`<td class="n">${x}</td>`).join('')}</tr>`).join('');
-$('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).toLocaleString())} from <code>${esc(D.root)}</code> · ${pl(D.files,'file')} · ${pl(D.sessions.length,'session')}</div>
+$('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).toLocaleString())} from <code>${esc(D.root)}</code> · ${pl(D.files,'file')} · ${pl(D.sessions.length,'session')} · Developed by <b>Infenia Private Limited</b> under the MIT License</div>
  <div class="notes">
   <div><b>Definitions</b>A <b>task</b> is one human prompt through the last activity before the next prompt; a <b>turn</b> is one model API call. Subagent transcripts count toward the task that was running when they started.</div>
   <div><b>Time split</b>Interval union (model › tools › subagent › user tools), so parallel work is not double counted. <i>Idle</i> is time with no model or tool activity.</div>

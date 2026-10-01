@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
-    { name = "Claudon Contributors" }
+    { name = "Infenia Private Limited" }
 ]
 keywords = ["claude", "claude-code", "analytics", "dashboard", "anthropic", "llm"]
 classifiers = [

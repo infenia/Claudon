@@ -276,6 +276,10 @@ class TestClaudon(unittest.TestCase):
         payload = html.split('<script id="d" type="application/json">', 1)[1].split("</script>", 1)[0]
         self.assertEqual(json.loads(payload), data)
 
+    def test_infenia_attribution_in_template(self):
+        self.assertIn("Infenia Private Limited", claudon.TEMPLATE)
+        self.assertIn("MIT License", claudon.TEMPLATE)
+
 
 if __name__ == "__main__":
     unittest.main()
