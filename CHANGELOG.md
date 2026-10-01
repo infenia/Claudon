@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/infenia/claudon/compare/v0.2.1...v0.3.0) (2026-10-01)
+
+
+### Features
+
+* deploy WASM dashboard to GitHub Pages ([#13](https://github.com/infenia/claudon/issues/13)) ([1f14646](https://github.com/infenia/claudon/commit/1f14646b8c2058dca76a184ab2305811b24dbeda))
+* README home page on Pages, dark screenshot, Esc closes task dialog ([#20](https://github.com/infenia/claudon/issues/20)) ([38ac9b5](https://github.com/infenia/claudon/commit/38ac9b5a5aaa69ea25e1ae2d1c39938191ba1075))
+
 ## [0.2.1](https://github.com/infenia/claudon/compare/v0.2.0...v0.2.1) (2026-10-01)
 
 
