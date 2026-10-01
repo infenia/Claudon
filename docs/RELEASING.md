@@ -31,7 +31,7 @@ the versions above, and run the full CI suite before publishing.
 | Workflow | Publishes |
 |---|---|
 | `release.yml` — Publish Release (PyPI & npm) | PyPI (trusted publishing) and npm (with provenance) |
-| `nuitka-build.yml` — Build & Release Standalone Binaries | GitHub Release with Linux / macOS arm64 + Intel / Windows binaries, `SHA256SUMS` and build provenance attestations; tags containing `-` become prereleases |
+| `nuitka-build.yml` — Build & Release Standalone Binaries | GitHub Release with Linux / macOS arm64 + Intel / Windows binaries plus `claudon.py`, `SHA256SUMS` and build provenance attestations; tags containing `-` become prereleases. Pinned `install.sh` installs (`CLAUDON_VERSION=vX.Y.Z`) download from this release, so run it for every version |
 
 ---
 
@@ -90,5 +90,9 @@ bunx claudon@beta
 - **GitHub environment** `pypi`: create it under *Settings → Environments*; adding required reviewers gives every
   PyPI publish a manual approval gate.
 - **npm**: add an automation token as the `NPM_TOKEN` repository secret.
+- **macOS signing (optional)**: without these secrets the macOS binaries are built unsigned. With an Apple Developer
+  account, add `MACOS_CERT_P12` (base64 of the *Developer ID Application* `.p12`), `MACOS_CERT_PASSWORD`,
+  `MACOS_SIGN_IDENTITY` (e.g. `Developer ID Application: Infenia (TEAMID)`), `APPLE_ID`, `APPLE_TEAM_ID` and
+  `APPLE_APP_PASSWORD` (an app-specific password); the workflow then signs and notarizes both macOS binaries.
 - **Branch protection** on `main`: require pull requests, the CI status checks, and *Require branches to be up to
   date before merging*, so a stale branch can't silently revert merged work.

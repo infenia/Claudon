@@ -38,7 +38,7 @@ bunx claudon
 ```bash
 curl -fsSL https://raw.githubusercontent.com/infenia/Claudon/main/install.sh | sh
 
-# pin a release instead of main
+# recommended: pin a release; claudon.py is then checked against that release's SHA256SUMS
 curl -fsSL https://raw.githubusercontent.com/infenia/Claudon/main/install.sh | CLAUDON_VERSION=v0.1.0 sh
 ```
 
@@ -68,7 +68,7 @@ Standalone executables are output to `dist/`.
 
 #### 📦 Release & Distribution Channels
 Claudon follows **Semantic Versioning** (`vX.Y.Z`, prereleases `vX.Y.Z-beta.N`). Releases are never automatic: after pushing a tag, a maintainer dispatches the release workflows on that tag. They run the full test suite, check the tag against the package versions, and publish:
-- **Nuitka Binaries**: Standalone executables for Linux x86_64, macOS (arm64 and Intel) and Windows, attached to GitHub Releases with `SHA256SUMS` and build provenance attestations (`gh attestation verify <file> -R infenia/Claudon`).
+- **Nuitka Binaries**: Standalone executables for Linux x86_64, macOS (arm64 and Intel) and Windows, attached to GitHub Releases with `SHA256SUMS` and build provenance attestations (`gh attestation verify <file> -R infenia/Claudon`). macOS binaries are signed and notarized when the maintainers' Apple signing secrets are configured.
 - **PyPI Package**: Published to PyPI for instant execution via `uvx claudon`, `pipx run claudon`, or `pip install claudon`.
 - **npm Package**: Published to npm registry for instant execution via `npx claudon` or `bunx claudon`.
 
@@ -99,10 +99,10 @@ claudon [PATH] [-o FILE] [--redact] [--pricing FILE] [--open] [--install-plugin]
 | Flag | Description |
 |---|---|
 | `-o FILE`, `--out FILE` | Output HTML report file path (default: `cc_report.html`) |
-| `--redact` | Redact prompts, titles, project names, paths, commands and MCP server names for safe report sharing |
+| `--redact` | Redact prompts, titles, project names, paths, commands, session IDs and MCP server names for safe report sharing |
 | `--pricing FILE` | Custom $/MTok rates keyed by model-id substring (longest match wins): `{"claude-opus-4-1": [input, output, cache_read, write_5m, write_1h]}` |
 | `--open` | Automatically open the generated HTML report in your default browser |
-| `--install-plugin` | Register `/claudon` slash command in `<config dir>/commands/` |
+| `--install-plugin` | Register `/claudon` slash command in `<config dir>/commands/` (won't overwrite your edits to it without `--force`) |
 | `--version` | Print the version |
 
 ---
