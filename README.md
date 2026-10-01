@@ -4,7 +4,7 @@
 
 **Claudon** turns your Claude Code session logs (`.jsonl`) into a single, self-contained interactive HTML dashboard. Gain full visibility into turn duration, wall time breakdown (model vs. tools vs. idle), tool call failures, thinking tokens & time, cost estimates, and auto-detected performance bottlenecks.
 
-Runs 100% locally with zero dependencies (Python 3.9+ stdlib only). Your private logs and code never leave your machine.
+Runs 100% locally with zero dependencies (Python 3.10+ stdlib only). Your private logs and code never leave your machine.
 
 ---
 
