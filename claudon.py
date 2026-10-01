@@ -325,9 +325,10 @@ def build(root):
     groups = collections.defaultdict(list)             # (project, session id) -> files
     for p in paths:
         parts = p.relative_to(base).parts
-        proj = parts[0] if len(parts) > 1 else base.name
         sub = 'subagents' in parts
         sid = parts[parts.index('subagents') - 1] if sub else p.stem
+        depth = parts.index('subagents') - 1 if sub else len(parts) - 1     # dirs above the session
+        proj = parts[0] if depth >= 1 else base.name                         # base may itself be one project
         groups[(proj, sid)].append((p, sub))
     sessions, tasks, seen = [], [], set()
     for (proj, sid), files in sorted(groups.items(), key=copy_last):
@@ -351,7 +352,8 @@ def redact(d):
         parts = n.split('__')
         if len(parts) < 3 or parts[0] != 'mcp':
             return n
-        return '__'.join(['mcp', servers.setdefault(parts[1], f'server-{len(servers) + 1}')] + parts[2:])
+        server = '__'.join(parts[1:-1])             # server names may contain '__'; keep only the tool part
+        return f"mcp__{servers.setdefault(server, f'server-{len(servers) + 1}')}__{parts[-1]}"
 
     for t in d['tasks']:
         t['proj'] = names.setdefault(t['proj'], f'project-{len(names) + 1}')

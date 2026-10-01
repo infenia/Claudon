@@ -58,6 +58,9 @@ git push origin vX.Y.Z
 gh workflow run release.yml      --ref vX.Y.Z -f npm_tag=latest
 gh workflow run nuitka-build.yml --ref vX.Y.Z
 ```
+`release.yml` inputs: `npm_tag` (must be `latest` for a stable tag and anything else, e.g. `beta`, for a
+prerelease; the workflow enforces this), and `publish_pypi` / `publish_npm` (both default `true`; set one to
+`false` to re-run only the other registry after a partial failure).
 Or in the **Actions** tab: pick the workflow → **Run workflow** → choose the tag (not a branch) under *Use workflow from*.
 
 ---

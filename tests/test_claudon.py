@@ -70,7 +70,7 @@ class TestClaudon(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_redact_strips_prompt_and_mcp_server_names(self):
-        tool = {"type": "tool_use", "id": "tu1", "name": "mcp__acme-internal__search", "input": {"query": "q"}}
+        tool = {"type": "tool_use", "id": "tu1", "name": "mcp__acme-internal__corp__search", "input": {"query": "q"}}
         result = {"timestamp": "2026-01-01T12:00:07Z", "type": "user",
                   "message": {"content": [{"type": "tool_result", "tool_use_id": "tu1", "content": "ok"}]}}
         f = self.write("p/proj/0b5e7c2a-1111.jsonl", [user(0, "secret prompt"), assistant(5, "m1", content=[tool]), result])
@@ -79,6 +79,7 @@ class TestClaudon(unittest.TestCase):
         dumped = json.dumps(data)
         self.assertNotIn("secret prompt", dumped)
         self.assertNotIn("acme-internal", dumped)
+        self.assertNotIn("corp", dumped)
         self.assertIn("mcp__server-1__search", data["tasks"][0]["tool_stats"])
         self.assertNotIn(f.stem, dumped)                  # session ids are replaced too
         self.assertEqual(data["tasks"][0]["id"], "session-1#0")
@@ -141,6 +142,14 @@ class TestClaudon(unittest.TestCase):
         t = claudon.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
         self.assertEqual(t["cost_mix"], [0.004, 0.01, 0.004, 0.021])   # 1h writes at 2x, 5m at 1.25x input
         self.assertAlmostEqual(sum(t["cost_mix"]), t["cost"], places=5)
+
+    def test_subagents_stay_with_session_when_path_is_one_project(self):
+        sid = "0b5e7c2a-1111"
+        self.write(f"projects/proj-x/{sid}.jsonl", [user(0, "hi"), assistant(5, "m1")])
+        self.write(f"projects/proj-x/{sid}/subagents/agent-1.jsonl", [dict(assistant(2, "s1"), isSidechain=True)])
+        for path in ("projects", "projects/proj-x"):
+            tasks = claudon.build(str(self.tmp_path / path))["tasks"]
+            self.assertEqual([(t["calls"], t["sub_calls"]) for t in tasks], [(1, 1)], path)
 
     def test_shared_history_credited_to_original_not_copy(self):
         orig = "11111111-aaaa"

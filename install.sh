@@ -14,7 +14,7 @@ if ! command -v python3 >/dev/null 2>&1; then
     echo "Warning: python3 not found on PATH; Claudon needs Python 3.11+ to run."
 fi
 
-TMP="$(mktemp)"
+TMP="$(mktemp "${INSTALL_DIR}/.claudon.XXXXXX")"     # same filesystem as the target, so mv is atomic
 SUMS="$(mktemp)"
 trap 'rm -f "${TMP}" "${SUMS}"' EXIT
 
@@ -42,6 +42,7 @@ sha256() {
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -f "$0" ] && [ "$(basename "$0")" = "install.sh" ] && [ -f "${SCRIPT_DIR}/claudon.py" ]; then
     echo "Installing Claudon from local source..."
+    if [ -n "${CLAUDON_VERSION}" ]; then echo "Note: CLAUDON_VERSION is ignored when installing from a checkout."; fi
     cp "${SCRIPT_DIR}/claudon.py" "${TMP}"
 elif [ "${VERSION}" = "main" ]; then
     echo "Downloading Claudon (main branch, unverified; set CLAUDON_VERSION=vX.Y.Z for a checksum-verified release)..."

@@ -178,7 +178,10 @@
       statusEl.textContent = `Could not start the analysis worker (${err.message}). ${SERVE_HINT}`;
     }
     if (worker) {
-      worker.onerror = (e) => { statusEl.textContent = `Analysis worker failed (${e.message || 'load error'}). ${SERVE_HINT}`; };
+      worker.onerror = (e) => {
+        busy = false;
+        statusEl.textContent = `Analysis worker failed (${e.message || 'load error'}). ${SERVE_HINT}`;
+      };
       worker.onmessage = ({ data: msg }) => {
         if (msg.type === 'ready') {
           ready = true;
@@ -247,14 +250,19 @@
         statusEl.textContent = 'No .jsonl transcript files were selected.';
         return;
       }
-      busy = true;
+      busy = true;                                // cleared by the worker's result/error message
       statusEl.textContent = `Reading ${transcripts.length} file(s)...`;
-      const used = new Set();
-      const payload = [];
-      for (const file of transcripts) {
-        payload.push({ path: targetPath(file, used), data: await file.arrayBuffer(), mtime: file.lastModified });
+      try {
+        const used = new Set();
+        const payload = [];
+        for (const file of transcripts) {
+          payload.push({ path: targetPath(file, used), data: await file.arrayBuffer(), mtime: file.lastModified });
+        }
+        worker.postMessage({ files: payload }, payload.map(f => f.data));
+      } catch (err) {
+        busy = false;
+        statusEl.textContent = 'Could not read the selected files: ' + err.message;
       }
-      worker.postMessage({ files: payload }, payload.map(f => f.data));
     }
 
     function displayReport(htmlContent) {

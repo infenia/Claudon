@@ -38,9 +38,11 @@ bunx claudon
 ```bash
 curl -fsSL https://raw.githubusercontent.com/infenia/Claudon/main/install.sh | sh
 
-# recommended: pin a release; claudon.py is then checked against that release's SHA256SUMS
-curl -fsSL https://raw.githubusercontent.com/infenia/Claudon/main/install.sh | CLAUDON_VERSION=v0.1.0 sh
+# recommended: pin a release (see GitHub Releases); claudon.py is checked against that release's SHA256SUMS
+curl -fsSL https://raw.githubusercontent.com/infenia/Claudon/main/install.sh | CLAUDON_VERSION=vX.Y.Z sh
 ```
+The checksum catches corrupted or mismatched downloads. To also prove a release file was built by this repo's
+workflow, download it and run `gh attestation verify claudon.py -R infenia/Claudon`.
 
 ### Direct Clone
 ```bash
@@ -91,7 +93,7 @@ Once installed, simply type `/claudon` in any active Claude Code CLI session to 
 ## ⚙️ Options & CLI Usage
 
 ```bash
-claudon [PATH] [-o FILE] [--redact] [--pricing FILE] [--open] [--install-plugin] [--version]
+claudon [PATH] [-o FILE] [--redact] [--pricing FILE] [--open] [--install-plugin [--force]] [--version]
 ```
 
 `PATH` can be a `~/.claude` directory, its `projects/` subfolder, a specific project directory, or a single `.jsonl` transcript file (default: `$CLAUDE_CONFIG_DIR` if set, else `~/.claude`).
@@ -102,7 +104,8 @@ claudon [PATH] [-o FILE] [--redact] [--pricing FILE] [--open] [--install-plugin]
 | `--redact` | Redact prompts, titles, project names, paths, commands, session IDs and MCP server names for safe report sharing |
 | `--pricing FILE` | Custom $/MTok rates keyed by model-id substring (longest match wins): `{"claude-opus-4-1": [input, output, cache_read, write_5m, write_1h]}` |
 | `--open` | Automatically open the generated HTML report in your default browser |
-| `--install-plugin` | Register `/claudon` slash command in `<config dir>/commands/` (won't overwrite your edits to it without `--force`) |
+| `--install-plugin` | Register `/claudon` slash command in `<config dir>/commands/` |
+| `--force` | With `--install-plugin`: overwrite a `claudon.md` you have edited (otherwise it is left alone) |
 | `--version` | Print the version |
 
 ---

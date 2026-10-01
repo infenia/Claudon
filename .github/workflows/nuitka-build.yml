@@ -27,7 +27,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Tag matches claudon.__version__ and package.json
-        run: python scripts/check_version.py "${{ github.ref_name }}"
+        env:
+          REF: ${{ github.ref_name }}          # via env, never interpolated into the script
+        run: python scripts/check_version.py "$REF"
 
   ci:
     uses: ./.github/workflows/ci.yml
@@ -45,7 +47,10 @@ jobs:
           - { os: windows-latest, asset: claudon-windows-x86_64.exe }
     env:
       # macOS signing + notarization run only when these secrets exist (secrets can't be tested in `if:` directly)
-      HAS_MACOS_SIGNING: ${{ secrets.MACOS_CERT_P12 != '' && secrets.APPLE_APP_PASSWORD != '' }}
+      # (MACOS_CERT_PASSWORD may be empty for a password-less .p12)
+      HAS_MACOS_SIGNING: >-
+        ${{ secrets.MACOS_CERT_P12 != '' && secrets.MACOS_SIGN_IDENTITY != '' && secrets.APPLE_ID != ''
+            && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -81,7 +86,7 @@ jobs:
             if [ "$HAS_MACOS_SIGNING" = "true" ]; then
               sign=(--macos-sign-identity="$MACOS_SIGN_IDENTITY" --macos-sign-notarization)
             else
-              echo "::notice::MACOS_CERT_P12 / APPLE_APP_PASSWORD not set: building an unsigned macOS binary"
+              echo "::notice::macOS signing secrets not all set: building an unsigned macOS binary"
             fi
           fi
           python scripts/build_nuitka.py --onefile --output-dir dist "${sign[@]}"
