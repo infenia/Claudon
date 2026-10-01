@@ -19,7 +19,9 @@ uvx claudon --open
 
 <img src="docs/assets/overview.png" alt="Claudon dashboard overview: tasks, wall time, cost, time breakdown and per-project cost" width="860">
 
-<sub>Demo data. Your own sessions stay on your machine.</sub>
+<sub>Redacted sample. Your own sessions stay on your machine.</sub>
+
+[Quick start](#quick-start) · [In the browser](#in-the-browser-no-install) · [Usage](#usage) · [Privacy](#privacy) · [Contributing](#contributing)
 
 </div>
 
@@ -27,21 +29,25 @@ uvx claudon --open
 
 ## Why Claudon?
 
-Claude Code is fast until it isn't. Which turn burned ten minutes? Was it the model, a slow tool, or you being away? Did that failing tool call loop? What did the session really cost? Your answers are already in `~/.claude`; Claudon reads them and shows you:
+Claude Code is fast until it isn't. Which turn burned ten minutes? Was it the model, a slow tool, or you being away? Did a failing tool call loop? What did the session really cost?
 
-- **Where time went**: model vs. tools vs. permission waits vs. idle, per task, turn and subagent.
-- **What it cost**: token usage × list prices per model generation (override with `--pricing`).
-- **What went wrong**: automatic detection of tool failures, slow turns and retry loops.
-- **How hard it thought**: thinking time vs. thinking tokens.
-- **Safe to share**: `--redact` strips prompts, paths, commands and project names.
+The answers are already in `~/.claude`. Claudon reads them and shows you:
+
+| | |
+|---|---|
+| **Where time went** | model vs. tools vs. permission waits vs. idle, per task, turn and subagent |
+| **What it cost** | token usage × list prices per model generation (override with `--pricing`) |
+| **What went wrong** | automatic detection of tool failures, slow turns and retry loops |
+| **How hard it thought** | thinking time vs. thinking tokens |
+| **Safe to share** | `--redact` strips prompts, paths, commands and project names |
 
 It is a single Python file using only the standard library. No telemetry, no network, no account.
 
 ---
 
-## 🚀 Quick Start
+## Quick start
 
-Use whichever runner you already have; each downloads and runs the latest release on demand:
+Run it with whichever tool you already have. Each one downloads the latest release on demand.
 
 | Tool | Run once | Install globally |
 |---|---|---|
@@ -52,114 +58,140 @@ Use whichever runner you already have; each downloads and runs the latest releas
 | **pnpm** | `pnpm dlx @infenia/claudon` | `pnpm add -g @infenia/claudon` |
 | **Yarn** (2+) | `yarn dlx @infenia/claudon` | |
 | **Bun** | `bunx @infenia/claudon` | `bun add -g @infenia/claudon` |
-| **Shell script** | | [`install.sh`](#standalone-shell-script) |
-| **Browser** | [WebAssembly page](#-webassembly-in-browser--zero-python) | no install |
+
+After a global install:
 
 ```bash
-claudon ~/.claude -o report.html --open      # after a global install
+claudon ~/.claude -o report.html --open
 ```
 
-> The npm-family packages (npx, pnpm, yarn, bun) are a thin launcher around the same Python script, so they need
-> **Python 3.11+** on your `PATH` (`python3`, `python` or `py`). No Python at all? Use the browser version or a
+> **Requirements:** Python 3.11+ on your `PATH` (`python3`, `python` or `py`). The npm-family packages are a thin
+> launcher around the same Python script. No Python? Use the [browser version](#in-the-browser-no-install) or a
 > standalone binary from [GitHub Releases](https://github.com/infenia/claudon/releases).
-> Use `@beta` / `uvx --prerelease allow` for pre-releases.
 
-### Standalone Shell Script
+<details>
+<summary><b>Other ways to install</b> (shell script, git clone, pre-releases)</summary>
+
+### Shell script
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/infenia/claudon/main/install.sh | sh
 
 # recommended: pin a release (see GitHub Releases); claudon.py is checked against that release's SHA256SUMS
 curl -fsSL https://raw.githubusercontent.com/infenia/claudon/main/install.sh | CLAUDON_VERSION=vX.Y.Z sh
 ```
+
 The checksum catches corrupted or mismatched downloads. To also prove a release file was built by this repo's
 workflow, download it and run `gh attestation verify claudon.py -R infenia/claudon`.
 
-### Direct Clone
+### Git clone
+
 ```bash
 git clone https://github.com/infenia/claudon.git
 cd claudon
 python3 claudon.py ~/.claude -o report.html --open
 ```
 
-### ⚡ WebAssembly (In-Browser / Zero Python)
-Run Claudon entirely in your browser without local Python installed via GitHub Pages or local HTTP server:
-- **Live web app**: [claudon.infenia.com](https://claudon.infenia.com/)
-- **Local server**: From the repository root run `python3 -m http.server` and open `http://localhost:8000/wasm/`.
+### Pre-releases
 
-Drop `.jsonl` transcripts, or use **Open Folder** on `~/.claude/projects` to keep project grouping and subagents.
-
-**Nothing is uploaded.** Files are read by the browser and analyzed on your machine; the page's only network requests
-download the Pyodide runtime (jsDelivr) and `claudon.py`, and once it shows *Ready* it keeps working offline. Chrome and
-Edge ask to let the page *view* the folder. Browsers without that folder API (Firefox, Safari) show their own
-"upload" prompt for folder pickers, which only grants the page read access.
-
-### 🛠️ Native Binary (Nuitka)
-To compile Claudon into a single native binary locally:
 ```bash
-pip install nuitka==4.2.2 zstandard
-python scripts/build_nuitka.py --onefile
+uvx --prerelease allow claudon
+npx @infenia/claudon@beta
 ```
-Standalone executables are output to `dist/`.
 
-### 📦 Releases
-Claudon follows **Semantic Versioning** and is released through an automated, reviewable pipeline: Conventional Commit PR titles drive an auto-generated release PR (version bump + [CHANGELOG](CHANGELOG.md)); merging it tags the release and publishes:
-- **Nuitka Binaries**: Linux x86_64, macOS (arm64 and Intel) and Windows, attached to GitHub Releases with `SHA256SUMS` and build provenance attestations (`gh attestation verify <file> -R infenia/claudon`).
-- **PyPI**: `uvx`, `pipx` or `pip` (trusted publishing).
-- **npm**: `npx`, `pnpm dlx`, `yarn dlx` or `bunx` (with provenance).
-
-Want pre-release builds? `uvx --prerelease allow claudon` or `npx @infenia/claudon@beta`. Full process: [docs/RELEASING.md](docs/RELEASING.md).
+</details>
 
 ---
 
-## ⚡ Integration with Claude Code
+## In the browser (no install)
 
-Install Claudon as a native slash command inside Claude Code:
+Claudon also runs entirely in your browser, with no local Python.
+
+- **Live app:** [claudon.infenia.com/app](https://claudon.infenia.com/app/)
+- **Locally:** from the repository root run `python3 -m http.server`, then open `http://localhost:8000/wasm/`.
+
+Drop `.jsonl` transcripts onto the page, or use **Open Folder** on `~/.claude/projects` to keep project grouping and subagents.
+
+---
+
+## Use it inside Claude Code
 
 ```bash
 claudon --install-plugin
 ```
 
-Once installed, simply type `/claudon` in any active Claude Code CLI session to instantly generate and open your analytics dashboard!
+Then type `/claudon` in any Claude Code session to generate and open your dashboard.
 
 ---
 
-## ⚙️ Options & CLI Usage
+## Usage
 
 ```bash
 claudon [PATH] [-o FILE] [--redact] [--pricing FILE] [--open] [--install-plugin [--force]] [--version]
 ```
 
-`PATH` can be a `~/.claude` directory, its `projects/` subfolder, a specific project directory, or a single `.jsonl` transcript file (default: `$CLAUDE_CONFIG_DIR` if set, else `~/.claude`).
+`PATH` can be a `~/.claude` directory, its `projects/` subfolder, a specific project directory, or a single `.jsonl`
+transcript. The default is `$CLAUDE_CONFIG_DIR` if set, else `~/.claude`.
 
 | Flag | Description |
 |---|---|
-| `-o FILE`, `--out FILE` | Output HTML report file path (default: `cc_report.html`) |
-| `--redact` | Redact prompts, titles, project names, paths, commands, session IDs and MCP server names for safe report sharing |
+| `-o FILE`, `--out FILE` | Output HTML report path (default: `cc_report.html`) |
+| `--redact` | Redact prompts, titles, project names, paths, commands, session IDs and MCP server names, for safe sharing |
 | `--pricing FILE` | Custom $/MTok rates keyed by model-id substring (longest match wins): `{"claude-opus-4-1": [input, output, cache_read, write_5m, write_1h]}` |
-| `--open` | Automatically open the generated HTML report in your default browser |
-| `--install-plugin` | Register `/claudon` slash command in `<config dir>/commands/` |
+| `--open` | Open the generated report in your default browser |
+| `--install-plugin` | Register the `/claudon` slash command in `<config dir>/commands/` |
 | `--force` | With `--install-plugin`: overwrite a `claudon.md` you have edited (otherwise it is left alone) |
 | `--version` | Print the version |
 
+**Common recipes**
+
+```bash
+claudon --open                                  # analyze everything, open the report
+claudon ~/.claude/projects/my-project --open    # one project only
+claudon --redact -o share-me.html               # safe to attach to an issue
+```
+
+### What's in the report
+
+- **Task breakdown:** each human prompt through to completion.
+- **Turns & subagents:** model API calls vs. agent delegation.
+- **Time, thinking & cost:** the breakdowns described [above](#why-claudon).
+- **Bottlenecks:** failures, slow turns and loops, surfaced automatically.
+
+The report is one self-contained `.html` file: no server, no external assets.
+
 ---
 
-## 📊 What's in the Report?
+## Privacy
 
-- **Task Breakdown**: each human prompt through to completion.
-- **Turns & Subagents**: model API calls vs. agent delegation.
-- **Time, Thinking & Cost**: the breakdowns described [above](#why-claudon).
-- **Bottlenecks**: failures, slow turns and loops, surfaced automatically.
+Everything runs on your machine. The CLI makes no network requests.
 
-The report is one self-contained `.html` file: no server, no external assets, easy to attach to an issue (use `--redact`).
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) (PR titles must be [Conventional Commits](https://www.conventionalcommits.org/)), follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report vulnerabilities privately per [SECURITY.md](SECURITY.md). See the [CHANGELOG](CHANGELOG.md) for release history.
+The browser version uploads nothing either: files are read and analyzed locally. Its only downloads are the Pyodide
+runtime (from jsDelivr) and `claudon.py`, and once it shows *Ready* it keeps working offline. Chrome and Edge ask to
+let the page *view* the folder you pick. Firefox and Safari show their own "upload" prompt for folder pickers, which
+only grants the page read access.
 
 ---
 
-## 📄 License
+## Releases
 
-Developed by **Infenia Private Limited**. MIT License. See [LICENSE](LICENSE) for details.
+Claudon follows [Semantic Versioning](https://semver.org/). Conventional Commit PR titles drive an auto-generated
+release PR (version bump + [CHANGELOG](CHANGELOG.md)); merging it tags the release and publishes:
+
+- **PyPI** (trusted publishing) and **npm** (with provenance)
+- **Standalone binaries** for Linux x86_64, macOS (arm64 and Intel) and Windows, on GitHub Releases with `SHA256SUMS`
+  and build provenance attestations (`gh attestation verify <file> -R infenia/claudon`)
+
+Full process: [docs/RELEASING.md](docs/RELEASING.md).
+
+---
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) (PR titles must be
+[Conventional Commits](https://www.conventionalcommits.org/)) and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Report vulnerabilities privately per [SECURITY.md](SECURITY.md).
+
+## License
+
+Developed by **Infenia Private Limited**. MIT License. See [LICENSE](LICENSE).

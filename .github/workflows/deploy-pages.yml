@@ -5,6 +5,9 @@ on:
     branches: [ main ]
     paths:
       - 'wasm/**'
+      - 'site/**'
+      - 'README.md'
+      - 'docs/assets/**'
       - 'claudon.py'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
@@ -31,9 +34,10 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Prepare site directory
         run: |
-          mkdir -p _site
-          cp -r wasm/* _site/
-          cp claudon.py _site/
+          mkdir -p _site/app _site/docs
+          cp -r wasm/* claudon.py _site/app/
+          cp site/index.html README.md _site/
+          cp -r docs/assets _site/docs/
           touch _site/.nojekyll
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
