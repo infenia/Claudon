@@ -120,10 +120,6 @@
       border-top: 1px solid var(--border);
     }
   </style>
-  <!-- SRI pins pyodide.js only; the runtime files it loads come from the same pinned version directory -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"
-          integrity="sha384-Zt+txBUVind9SDPtCx7HTNK8jiZiFKX/Cm3Ml1tEnAmGKO/QSRn1VqM+Vr45Cbrj"
-          crossorigin="anonymous"></script>
 </head>
 <body>
   <header>
@@ -161,7 +157,9 @@
 
   <script>
     const ROOT = '/home/pyodide/transcripts';
-    let pyodide = null;
+    const SERVE_HINT = 'Serve the repository over HTTP, e.g. run "python3 -m http.server" in the repo root ' +
+      'and open http://localhost:8000/wasm/';
+    let ready = false, busy = false;
     let generatedHtml = null;
 
     const statusEl = document.getElementById('status');
@@ -172,25 +170,38 @@
     const controls = document.getElementById('controls');
     const downloadBtn = document.getElementById('download-btn');
 
-    async function initPyodide() {
-      try {
-        const resp = await fetch('../claudon.py');
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const source = await resp.text();
-        const py = await loadPyodide();
-        py.FS.writeFile('/home/pyodide/claudon.py', source);
-        py.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
-        pyodide = py;
-        statusEl.textContent = 'Ready for transcript files!';
-      } catch (err) {
-        // file:// pages can't fetch ../claudon.py; the page must be served over HTTP
-        statusEl.textContent = `Could not load claudon.py (${err.message}). Serve the repository over HTTP, ` +
-          'e.g. run "python3 -m http.server" in the repo root and open http://localhost:8000/wasm/';
-        console.error(err);
-      }
+    // Pyodide + claudon run in worker.js so a long analysis never freezes the page
+    let worker = null;
+    try {
+      worker = new Worker('worker.js');           // throws on file:// pages
+    } catch (err) {
+      statusEl.textContent = `Could not start the analysis worker (${err.message}). ${SERVE_HINT}`;
     }
-
-    initPyodide();
+    if (worker) {
+      worker.onerror = (e) => { statusEl.textContent = `Analysis worker failed (${e.message || 'load error'}). ${SERVE_HINT}`; };
+      worker.onmessage = ({ data: msg }) => {
+        if (msg.type === 'ready') {
+          ready = true;
+          statusEl.textContent = 'Ready for transcript files!';
+        } else if (msg.type === 'fatal') {
+          statusEl.textContent = `Could not load claudon.py or the Python runtime (${msg.message}). ${SERVE_HINT}`;
+        } else if (msg.type === 'status') {
+          statusEl.textContent = msg.text;
+        } else if (msg.type === 'error') {
+          busy = false;
+          statusEl.textContent = 'Error running analysis: ' + msg.message;
+        } else if (msg.type === 'result') {
+          busy = false;
+          if (!msg.html) {
+            statusEl.textContent = 'No analysable sessions found in the selected files.';
+            return;
+          }
+          generatedHtml = msg.html;
+          statusEl.textContent = 'Analytics complete!';
+          displayReport(generatedHtml);
+        }
+      };
+    }
 
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -227,8 +238,8 @@
     }
 
     async function handleFiles(files) {
-      if (!pyodide) {
-        statusEl.textContent = 'The Python runtime is not ready yet: ' + statusEl.textContent;
+      if (!ready || busy) {
+        if (!ready) statusEl.textContent = 'The Python runtime is not ready yet: ' + statusEl.textContent;
         return;
       }
       const transcripts = [...files].filter(f => f.name.endsWith('.jsonl'));
@@ -236,36 +247,14 @@
         statusEl.textContent = 'No .jsonl transcript files were selected.';
         return;
       }
+      busy = true;
       statusEl.textContent = `Reading ${transcripts.length} file(s)...`;
-
-      pyodide.runPython(`import os, shutil; shutil.rmtree('${ROOT}', ignore_errors=True); os.makedirs('${ROOT}')`);
       const used = new Set();
+      const payload = [];
       for (const file of transcripts) {
-        const path = targetPath(file, used);
-        pyodide.FS.mkdirTree(path.slice(0, path.lastIndexOf('/')));
-        pyodide.FS.writeFile(path, new Uint8Array(await file.arrayBuffer()));
-        pyodide.FS.utime(path, file.lastModified, file.lastModified);   // claudon orders sessions by mtime
+        payload.push({ path: targetPath(file, used), data: await file.arrayBuffer(), mtime: file.lastModified });
       }
-
-      statusEl.textContent = 'Processing session analytics in WebAssembly...';
-      await new Promise(r => requestAnimationFrame(() => setTimeout(r)));   // let the status paint first
-
-      try {
-        generatedHtml = pyodide.runPython(`
-import claudon
-data = claudon.build('${ROOT}')
-claudon.render_html(data) if data['tasks'] else ''
-`);
-        if (!generatedHtml) {
-          statusEl.textContent = 'No analysable sessions found in the selected files.';
-          return;
-        }
-        statusEl.textContent = 'Analytics complete!';
-        displayReport(generatedHtml);
-      } catch (err) {
-        statusEl.textContent = 'Error running analysis: ' + err.message;
-        console.error(err);
-      }
+      worker.postMessage({ files: payload }, payload.map(f => f.data));
     }
 
     function displayReport(htmlContent) {

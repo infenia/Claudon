@@ -36,7 +36,7 @@ class TestScripts(unittest.TestCase):
             self.assertFalse(ok(v), v)
 
     def test_wasm_page_only_calls_existing_claudon_api(self):
-        page = (ROOT_DIR / "wasm" / "index.html").read_text(encoding="utf-8")
+        page = "".join((ROOT_DIR / "wasm" / f).read_text(encoding="utf-8") for f in ("index.html", "worker.js"))
         names = set(re.findall(r"\bclaudon\.([A-Za-z_]\w*)\(", page))
         self.assertTrue(names)
         for name in names:
