@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-    { name = "Claudon Contributors" }
+    { name = "Infenia Private Limited" }
 ]
 keywords = ["claude", "claude-code", "analytics", "dashboard", "anthropic", "llm"]
 classifiers = [
