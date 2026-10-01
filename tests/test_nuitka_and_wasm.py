@@ -50,6 +50,16 @@ class TestNuitkaAndWasm(unittest.TestCase):
         self.assertIn("Publish to PyPI", content)
         self.assertIn("Publish to npm", content)
 
+    def test_releasing_doc(self):
+        releasing_file = ROOT_DIR / "docs" / "RELEASING.md"
+        self.assertTrue(releasing_file.exists(), "docs/RELEASING.md should exist")
+
+        content = releasing_file.read_text(encoding="utf-8")
+        self.assertIn("Semantic Versioning", content)
+        self.assertIn("pyproject.toml", content)
+        self.assertIn("package.json", content)
+        self.assertIn("git tag", content)
+
 
 if __name__ == "__main__":
     unittest.main()

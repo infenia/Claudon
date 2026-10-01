@@ -66,6 +66,8 @@ Claudon follows **Semantic Versioning** (`v*.*.*`). Pushing a release tag automa
 - **PyPI Package**: Published to PyPI for instant execution via `uvx claudon`, `pipx run claudon`, or `pip install claudon`.
 - **npm Package**: Published to npm registry for instant execution via `npx claudon` or `bunx claudon`.
 
+See [docs/RELEASING.md](docs/RELEASING.md) for full release process instructions.
+
 ---
 
 ## ⚡ Integration with Claude Code
