@@ -34,6 +34,8 @@ SKIP_PREFIX = ('<task-notification', '<local-command', 'This session is being co
                '[Request interrupted', '<system-reminder', 'Caveat:')
 SKIP_CMDS = {'clear', 'model', 'help', 'compact', 'config', 'resume', 'exit', 'status', 'cost',
              'login', 'logout', 'permissions', 'mcp', 'agents', 'doctor', 'hooks', 'fast', 'effort'}
+# how Claude Code marks a tool call the user rejected or interrupted (a user decision, not a tool failure)
+USER_STOP = re.compile(r"doesn't want to proceed|tool use was rejected|\[Request interrupted by user", re.I)
 MAX_SEGS = 1200
 IDLE_SPLIT = 1800                                # seconds of silence that ends a task
 
@@ -143,6 +145,7 @@ def analyze_session(sid, proj, files, seen_msgs):
             r['_ts'] = ts_of(r)
             recs.append(r)
     uuid_ts = {r['uuid']: r['_ts'] for r in recs if r.get('uuid') and r['_ts']}
+    parent_of = {r['uuid']: r.get('parentUuid') for r in recs if r.get('uuid')}
 
     # --- API calls (assistant records are streamed one content block per record) ---
     by_msg = collections.OrderedDict()
@@ -155,15 +158,23 @@ def analyze_session(sid, proj, files, seen_msgs):
         if r['type'] == 'user' and isinstance(c, list) and r['_ts']:
             for b in c:
                 if isinstance(b, dict) and b.get('type') == 'tool_result':
-                    results[b.get('tool_use_id')] = (r['_ts'], bool(b.get('is_error')),
-                                                     'interrupted' in str(b.get('content'))[:200].lower())
+                    stopped = bool(b.get('is_error')) and bool(USER_STOP.search(str(b.get('content'))[:300]))
+                    results[b.get('tool_use_id')] = (r['_ts'], bool(b.get('is_error')) and not stopped, stopped)
     for mid, rs in by_msg.items():
         if mid in seen_msgs:                            # forked/resumed sessions copy history
             continue
         rs.sort(key=lambda r: r['_ts'])
         first = rs[0]
-        start = uuid_ts.get(first.get('parentUuid')) or first['_ts']
-        start = min(start, first['_ts'])
+        # request start = the parent record, skipping parents stamped as the response arrived
+        # (e.g. `deferred_tools_record` attachments), which would zero out the call's duration
+        start, u = None, first.get('parentUuid')
+        for _ in range(10):
+            t = uuid_ts.get(u)
+            if t is None or t < first['_ts'] - 0.05:
+                start = t
+                break
+            u = parent_of.get(u)
+        start = min(start or first['_ts'], first['_ts'])
         prev, think_s, tools = start, 0.0, []
         for r in rs:
             blocks = r['message'].get('content') or []
@@ -176,8 +187,8 @@ def analyze_session(sid, proj, files, seen_msgs):
         u = usage_of(rs)
         model = rs[0]['message'].get('model')
         p, est = price(model)
-        cost = (u['i'] * p[0] + u['o'] * p[1] + u['cr'] * p[2] + u['c5'] * p[3] + u['c1'] * p[4]) / 1e6
-        calls.append(dict(mid=mid, start=start, end=rs[-1]['_ts'], think_s=think_s, model=model or '?', u=u, cost=cost,
+        mix = (u['i'] * p[0] / 1e6, u['o'] * p[1] / 1e6, u['cr'] * p[2] / 1e6, (u['c5'] * p[3] + u['c1'] * p[4]) / 1e6)
+        calls.append(dict(mid=mid, start=start, end=rs[-1]['_ts'], think_s=think_s, model=model or '?', u=u, cost=sum(mix), mix=mix,
                           est=est, sub=first['_sub'], tools=tools, eff=first.get('effort'),
                           ctx=u['i'] + u['cr'] + u['c5'] + u['c1']))
     seen_msgs.update(c['mid'] for c in calls)
@@ -264,7 +275,8 @@ def analyze_session(sid, proj, files, seen_msgs):
             think_tok=sum(c['u']['think'] for c in cs), out_tok=sum(c['u']['o'] for c in cs),
             in_tok=sum(c['u']['i'] for c in cs), cr_tok=sum(c['u']['cr'] for c in cs),
             cc_tok=sum(c['u']['c5'] + c['u']['c1'] for c in cs),
-            cost=round(sum(c['cost'] for c in cs), 5), sub_cost=round(sum(c['cost'] for c in cs if c['sub']), 5),
+            cost=round(sum(c['cost'] for c in cs), 5), cost_mix=[round(sum(c['mix'][i] for c in cs), 5) for i in range(4)],
+            sub_cost=round(sum(c['cost'] for c in cs if c['sub']), 5),
             est=any(c['est'] for c in cs), ctx_max=max(c['ctx'] for c in cs), compacts=[[round(ct - t0, 1), dur, pre, post] for ct, dur, pre, post in t['compacts']],
             models=models, tool_stats=tool_stats, slow=tcalls[:6], segs=segs, ctx=ctx,
             efforts=sorted({c['eff'] for c in cs if c['eff']})))
@@ -520,9 +532,8 @@ function overview(){const a=A(F),sess=new Set(F.map(t=>t.sid)).size,cacheHit=a.c
  <div class="card"><h2>Cost per day</h2><div class="days">${dk.map(d=>`<div title="${d}: ${$$(days[d])}" style="height:${days[d]/mx*100}%"></div>`).join('')}</div><div class="axis"><span>${dk[0]}</span><span>${dk.at(-1)}</span></div></div></div>
  <div class="cols"><div class="card"><h2>Cost by project</h2>${tbl('proj',[{h:'Project',f:r=>esc(r[0]),v:r=>r[0]},{h:'Tasks',n:1,f:r=>r[1],v:r=>r[1]},{h:'Wall',n:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Cost',n:1,d:1,f:r=>$$(r[2]),v:r=>r[2]}],Object.entries(byP).map(([k,v])=>[k,v.length,sum(v,t=>t.cost),sum(v,t=>t.wall)]),15)}</div>
  <div class="card"><h2>Token cost mix</h2>${costMix()}</div></div>`}
-function costMix(){const r={in:0,out:0,cr:0,cc:0};F.forEach(t=>Object.entries(t.models).forEach(([m,v])=>{const p=pr(m);r.in+=v[6]*p[0];r.out+=v[2]*p[1];r.cr+=v[7]*p[2];r.cc+=v[8]*p[4]*.8}));
- const tot=sum(Object.values(r),x=>x)||1;return Object.entries({'Output':r.out,'Cache read':r.cr,'Cache write':r.cc,'Fresh input':r.in}).map(([k,v])=>`<div style="display:flex;gap:10px;align-items:center;margin:6px 0"><span style="width:90px">${k}</span><div class="hb" style="width:${v/tot*60}%"></div><span class="s">${P(v/tot)}</span></div>`).join('')+'<div class="s">approximate split (cache writes priced at ~1h/5m blend)</div>'}
-const pr=m=>{m=m.toLowerCase();const k=Object.keys(D.price).filter(k=>m.includes(k)).sort((a,b)=>b.length-a.length)[0];return k?D.price[k]:[0,0,0,0,0]};
+function costMix(){const r=[0,1,2,3].map(i=>sum(F,t=>t.cost_mix[i])),tot=sum(r,x=>x)||1;  // [fresh in, out, cache read, cache write] $
+ return [['Output',r[1]],['Cache read',r[2]],['Cache write',r[3]],['Fresh input',r[0]]].map(([k,v])=>`<div style="display:flex;gap:10px;align-items:center;margin:6px 0"><span style="width:90px">${k}</span><div class="hb" style="width:${v/tot*60}%"></div><span class="s">${P(v/tot)}</span></div>`).join('')}
 
 function tasksView(){return `<div class="card">${legend}<div style="height:8px"></div>`+tbl('tasks',[
  {h:'Date',f:t=>date(t.start),v:t=>t.start,d:1},{h:'Project',f:t=>esc(t.proj),v:t=>t.proj},{h:'Task',f:t=>`<div class="pr" title="${esc(t.prompt)}">${esc(t.prompt)}</div>`,v:t=>t.prompt},
@@ -533,7 +544,7 @@ function tasksView(){return `<div class="card">${legend}<div style="height:8px">
 function toolsView(){const rows=toolAgg(F),tot=sum(rows,r=>r[3])||1,mx=Math.max(...rows.map(r=>r[3]),1);
  const slow=F.flatMap(t=>t.slow.map(s=>[...s,t])).sort((a,b)=>b[1]-a[1]).slice(0,25);
  return `<div class="card"><h2>Tools by total time</h2>`+tbl('tools',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>N(r[1]),v:r=>r[1]},{h:'Errors',n:1,f:r=>r[2]?`${r[2]} <span class="s">(${P(r[2]/r[1])})</span>`:'–',v:r=>r[2]/r[1]},
- {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="hb t" style="width:${r[3]/mx*100}%"></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/r[1]).toFixed(1)+'s',v:r=>r[3]/r[1]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'Interrupted',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
+ {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="hb t" style="width:${r[3]/mx*100}%"></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/r[1]).toFixed(1)+'s',v:r=>r[3]/r[1]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'<span class="tip" title="calls the user rejected or interrupted; not counted as errors">Rejected</span>',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
  `<div class="s">Tool duration = tool_use → tool_result timestamps, so it includes time spent waiting on permission prompts. Subagent (Task/Agent) calls are counted here but painted separately in the time split.</div></div>
  <div class="card"><h2>Slowest individual calls</h2>`+tbl('slow',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Duration',n:1,d:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr">${esc(r[2])}</div>`,v:r=>r[2]},{h:'Err',f:r=>r[3]?'✗':'',v:r=>r[3]},{h:'Task',f:r=>`<span class="chip" data-task="${esc(r[4].id)}">${esc(r[4].prompt.slice(0,50))}</span>`,v:r=>r[4].prompt}],slow,25)+'</div>'}
 

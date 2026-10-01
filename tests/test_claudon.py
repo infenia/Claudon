@@ -113,6 +113,35 @@ class TestClaudon(unittest.TestCase):
             claudon.install_plugin(force=True)
         self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
 
+    def test_call_start_skips_records_written_with_the_response(self):
+        prompt = dict(user(0, "hi"), uuid="u1")
+        att = {"timestamp": "2026-01-01T12:00:30Z", "type": "attachment", "uuid": "a1", "parentUuid": "u1",
+               "attachment": {"type": "deferred_tools_record"}}
+        reply = dict(assistant(30, "m1"), uuid="r1", parentUuid="a1")
+        t = claudon.build(str(self.write("p/proj/s.jsonl", [prompt, att, reply])))["tasks"][0]
+        self.assertEqual(t["model_s"], 30)
+
+    def test_user_rejection_is_not_a_tool_error(self):
+        uses = [{"type": "tool_use", "id": i, "name": "Bash", "input": {}} for i in ("t1", "t2", "t3")]
+        res = lambda i, text, err: {"type": "tool_result", "tool_use_id": i, "content": text, "is_error": err}
+        f = self.write("p/proj/s.jsonl", [
+            user(0, "hi"), assistant(5, "m1", content=uses),
+            {"timestamp": "2026-01-01T12:00:09Z", "type": "user", "message": {"content": [
+                res("t1", "The user doesn't want to proceed with this tool use.", True),
+                res("t2", "command not found", True),
+                res("t3", "log: job interrupted at 12:00", False)]}}])
+        n, err, _, _, stopped = claudon.build(str(f))["tasks"][0]["tool_stats"]["Bash"]
+        self.assertEqual((n, err, stopped), (3, 1, 1))
+
+    def test_cost_mix_sums_to_cost(self):
+        a = assistant(5, "m1", model="claude-opus-5-5")
+        a["message"]["usage"] = {"input_tokens": 1000, "output_tokens": 500, "cache_read_input_tokens": 20000,
+                                 "cache_creation_input_tokens": 3000,
+                                 "cache_creation": {"ephemeral_1h_input_tokens": 2000, "ephemeral_5m_input_tokens": 1000}}
+        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
+        self.assertEqual(t["cost_mix"], [0.004, 0.01, 0.004, 0.021])   # 1h writes at 2x, 5m at 1.25x input
+        self.assertAlmostEqual(sum(t["cost_mix"]), t["cost"], places=5)
+
     def test_shared_history_credited_to_original_not_copy(self):
         orig = "11111111-aaaa"
         copied = [dict(user(0, "hi"), sessionId=orig), dict(assistant(5, "shared"), sessionId=orig)]
