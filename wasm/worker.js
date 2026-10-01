@@ -37,6 +37,7 @@ onmessage = async ({ data: { files } }) => {
     const html = py.runPython(`
 import claudon
 data = claudon.build('${ROOT}')
+data['root'] = 'files opened in your browser'   # not the worker's internal path
 claudon.render_html(data) if data['tasks'] else ''
 `);
     postMessage({ type: 'result', html });

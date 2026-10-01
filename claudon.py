@@ -549,9 +549,9 @@ h1{font-size:16px;margin:0 8px 0 0}nav button,select,input{font:inherit;color:va
 nav button{cursor:pointer}nav button.on{background:var(--model);border-color:var(--model);color:#fff}
 main{padding:20px;max-width:1500px;margin:auto}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
 .grid .card{margin:0}.k{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}.v{font-size:24px;font-weight:600}.s{color:var(--mute);font-size:12px}
-h2{font-size:14px;margin:0 0 10px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px}
+h2{font-size:14px;margin:0 0 10px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px}
 table{border-collapse:collapse;width:100%}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 th{color:var(--mute);font-weight:500;font-size:12px;cursor:pointer;white-space:nowrap;user-select:none}th:hover{color:var(--fg)}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer}tr.c:hover{background:var(--bg)}
@@ -568,7 +568,10 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 .gantt{position:relative;border:1px solid var(--line);border-radius:6px;margin:8px 0 4px;background:var(--bg)}.lane{position:relative;height:24px;border-bottom:1px dashed var(--line)}
 .lane:last-child{border:0}.lane span{position:absolute;top:3px;height:18px;border-radius:3px;min-width:2px;opacity:.9}.lane label{position:absolute;left:4px;top:4px;font-size:11px;color:var(--mute);z-index:1;pointer-events:none}
 .axis{display:flex;justify-content:space-between;color:var(--mute);font-size:11px}.pre{white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;max-height:160px;overflow:auto;font-size:12px}
-footer{color:var(--mute);font-size:12px;padding:10px 20px 40px;max-width:1500px;margin:auto}code{background:var(--bg);padding:1px 5px;border-radius:4px}
+footer{color:var(--mute);font-size:12px;line-height:1.5;padding:16px 20px 40px;max-width:1500px;margin:auto;border-top:1px solid var(--line)}
+footer .meta{margin-bottom:12px}footer .notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px 28px}
+footer .notes>div>b:first-child{display:block;color:var(--fg);font-size:12px;margin-bottom:2px}footer b{color:var(--fg);font-weight:600}
+footer details{margin-top:14px}footer summary{cursor:pointer;color:var(--fg)}footer details table{width:auto;margin-top:8px}footer details th,footer details td{font-size:12px;padding:3px 12px 3px 0;cursor:default}code{background:var(--bg);padding:1px 5px;border-radius:4px}
 .more{display:flex;gap:8px;align-items:center;margin-top:8px}.more button{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 10px;cursor:pointer}.more button:hover{border-color:var(--model)}
 .tip{color:var(--mute);cursor:help;border-bottom:1px dotted}
 </style></head><body>
@@ -682,9 +685,16 @@ function detail(id){const t=D.tasks.find(x=>x.id==id),w=t.wall,pc=x=>(x/w*100).t
 const views=[overview,tasksView,toolsView,modelsView,bottlenecks];
 function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=>b.classList.toggle('on',i==tab));
  $('#view').innerHTML=F.length?views[tab]():'<div class="card">No tasks match.</div>'}
-$('#foot').innerHTML=`Generated ${D.generated} from <code>${esc(D.root)}</code> (${D.files} files, ${D.sessions.length} sessions). A <b>task</b> = one human prompt through to the last activity before the next prompt; a <b>turn</b> = one model API call.
- Costs are <b>estimates</b> from token usage × configured $/MTok rates (${esc(JSON.stringify(D.price))}); * = includes models with unknown pricing. On real transcripts estimates land at a median ~95% of the CLI's own reported total; advisor sub-calls and fast mode are priced, server-tool fees (e.g. web search) are not. Subagent transcripts are attributed to the task running when they started.
- Time split uses interval union (model &gt; tools &gt; subagent &gt; user tools), so parallel work is not double counted; "idle" is time with no model or tool activity.`;
+const pl=(n,w)=>`${N(n)} ${w}${n==1?'':'s'}`;
+const rates=Object.entries(D.price).sort(([a],[b])=>a.localeCompare(b)).map(([k,p])=>`<tr><td><code>${esc(k)}</code></td>${p.map(x=>`<td class="n">${x}</td>`).join('')}</tr>`).join('');
+$('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).toLocaleString())} from <code>${esc(D.root)}</code> · ${pl(D.files,'file')} · ${pl(D.sessions.length,'session')}</div>
+ <div class="notes">
+  <div><b>Definitions</b>A <b>task</b> is one human prompt through the last activity before the next prompt; a <b>turn</b> is one model API call. Subagent transcripts count toward the task that was running when they started.</div>
+  <div><b>Time split</b>Interval union (model › tools › subagent › user tools), so parallel work is not double counted. <i>Idle</i> is time with no model or tool activity.</div>
+  <div><b>Costs</b>Estimates: token usage × the rates below; <code>*</code> marks tasks that include models with unknown pricing. On real transcripts they land at a median ~95% of the CLI's own reported total. Advisor sub-calls and fast mode are priced; server-tool fees (e.g. web search) are not.</div>
+ </div>
+ <details><summary>Rates used ($ per million tokens; the longest key contained in the model name wins)</summary>
+  <table><tr><th>Model key</th><th class="n">Input</th><th class="n">Output</th><th class="n">Cache read</th><th class="n">Cache write 5m</th><th class="n">Cache write 1h</th></tr>${rates}</table></details>`;
 document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task],[data-more]');if(!el)return;
  const modal=()=>{if(cur&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
  if(el.dataset.more){const[id,step]=el.dataset.more.split('|');shown[id]=step=='all'?Infinity:(shown[id]||+step)+ +step;render();modal();return}

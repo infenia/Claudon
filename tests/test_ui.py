@@ -229,7 +229,7 @@ class TestClaudonUI(unittest.TestCase):
 
         # Click Tasks Tab
         nav_buttons.nth(1).click()
-        self.assertTrue(self.page.locator("table").is_visible())
+        self.assertTrue(self.page.locator("#view table").is_visible())
         task_prompt = self.page.locator(".pr")
         self.assertIn("Build UI test suite", task_prompt.text_content())
 
