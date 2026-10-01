@@ -1,5 +1,5 @@
 {
-  "name": "claudon",
+  "name": "@infenia/claudon",
   "version": "0.2.0",
   "description": "Interactive session analytics & HTML dashboard for Claude Code",
   "repository": {

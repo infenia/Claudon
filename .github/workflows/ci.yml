@@ -103,5 +103,5 @@ jobs:
       - name: Pack and run npm package
         run: |
           npm pack
-          npm install -g ./claudon-*.tgz
+          npm install -g ./infenia-claudon-*.tgz
           cd /tmp && claudon --help
