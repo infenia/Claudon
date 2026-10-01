@@ -59,7 +59,7 @@ a commit body that lands on `main`.
 3. **Merge it** (squash). The `Release Please` workflow tags `vX.Y.Z`, creates the GitHub Release, and dispatches
    `release.yml` (`npm_tag=latest`, or `beta` for a tag containing `-`) and `nuitka-build.yml` on the tag.
 4. **Approve the PyPI publish** when the `pypi` environment asks for it (*Actions → the run → Review deployments*).
-5. **Verify**: `uvx claudon@X.Y.Z --version`, `npx claudon@X.Y.Z --version`, and the Release has binaries + `SHA256SUMS`.
+5. **Verify**: `uvx claudon@X.Y.Z --version`, `npx @infenia/claudon@X.Y.Z --version`, and the Release has binaries + `SHA256SUMS`.
 
 Both publish workflows still require a tag ref, re-check the tag against the package versions, and run the full CI
 suite first. Nothing publishes from a branch.
@@ -77,7 +77,7 @@ Remove those keys (via another PR) to graduate to a stable release. Testers opt 
 
 ```bash
 uvx --prerelease allow claudon      # or: uvx claudon@0.2.0b1, pip install --pre claudon
-npx claudon@beta                    # or: bunx claudon@beta
+npx @infenia/claudon@beta                    # or: bunx @infenia/claudon@beta
 ```
 
 ### Hotfix
@@ -110,7 +110,7 @@ merge, `git tag vX.Y.Z && git push origin vX.Y.Z`, then dispatch as above.
 Versions are immutable, so roll forward:
 
 - Ship a `fix:` release. Never reuse or retag a version.
-- npm: `npm deprecate claudon@X.Y.Z "reason, use X.Y.Z+1"`; PyPI: *Manage → Yank release*.
+- npm: `npm deprecate @infenia/claudon@X.Y.Z "reason, use X.Y.Z+1"`; PyPI: *Manage → Yank release*.
 - Edit the GitHub Release to mark it as broken, or delete the binary assets if they are unsafe.
 
 ---
@@ -126,7 +126,7 @@ Versions are immutable, so roll forward:
   repository `claudon`, workflow `release.yml`, environment `pypi`. No PyPI API token is needed.
 - **GitHub environment** `pypi`: create it under *Settings → Environments* and add required reviewers; this is the
   manual approval gate for every PyPI publish.
-- **npm**: add an automation token as the `NPM_TOKEN` repository secret.
+- **npm**: publish `@infenia/claudon` once by hand (`npm publish --access public`), then add a Trusted Publisher in the package settings (owner `infenia`, repo `claudon`, workflow `release.yml`, no environment). No token or secret is used.
 - **macOS signing (optional)**: without these secrets the macOS binaries are built unsigned. With an Apple Developer
   account add `MACOS_CERT_P12` (base64 of the *Developer ID Application* `.p12`), `MACOS_CERT_PASSWORD`,
   `MACOS_SIGN_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD`; the workflow then signs and notarizes.

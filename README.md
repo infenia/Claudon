@@ -9,7 +9,7 @@ One command turns your session logs into an interactive HTML dashboard.<br>
 
 [![CI](https://github.com/infenia/claudon/actions/workflows/ci.yml/badge.svg)](https://github.com/infenia/claudon/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/claudon)](https://pypi.org/project/claudon/)
-[![npm](https://img.shields.io/npm/v/claudon)](https://www.npmjs.com/package/claudon)
+[![npm](https://img.shields.io/npm/v/@infenia/claudon)](https://www.npmjs.com/package/@infenia/claudon)
 [![Python](https://img.shields.io/pypi/pyversions/claudon)](https://pypi.org/project/claudon/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -48,10 +48,10 @@ Use whichever runner you already have; each downloads and runs the latest releas
 | **uv** | `uvx claudon` | `uv tool install claudon` |
 | **pipx** | `pipx run claudon` | `pipx install claudon` |
 | **pip** | | `pip install claudon` |
-| **npm** | `npx claudon` | `npm install -g claudon` |
-| **pnpm** | `pnpm dlx claudon` | `pnpm add -g claudon` |
-| **Yarn** (2+) | `yarn dlx claudon` | |
-| **Bun** | `bunx claudon` | `bun add -g claudon` |
+| **npm** | `npx @infenia/claudon` | `npm install -g @infenia/claudon` |
+| **pnpm** | `pnpm dlx @infenia/claudon` | `pnpm add -g @infenia/claudon` |
+| **Yarn** (2+) | `yarn dlx @infenia/claudon` | |
+| **Bun** | `bunx @infenia/claudon` | `bun add -g @infenia/claudon` |
 | **Shell script** | | [`install.sh`](#standalone-shell-script) |
 | **Browser** | [WebAssembly page](#-webassembly-in-browser--zero-python) | no install |
 
@@ -107,7 +107,7 @@ Claudon follows **Semantic Versioning** and is released through an automated, re
 - **PyPI**: `uvx`, `pipx` or `pip` (trusted publishing).
 - **npm**: `npx`, `pnpm dlx`, `yarn dlx` or `bunx` (with provenance).
 
-Want pre-release builds? `uvx --prerelease allow claudon` or `npx claudon@beta`. Full process: [docs/RELEASING.md](docs/RELEASING.md).
+Want pre-release builds? `uvx --prerelease allow claudon` or `npx @infenia/claudon@beta`. Full process: [docs/RELEASING.md](docs/RELEASING.md).
 
 ---
 

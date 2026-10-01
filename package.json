@@ -1,6 +1,6 @@
 {
-  "name": "claudon",
-  "version": "0.1.0",
+  "name": "@infenia/claudon",
+  "version": "0.2.1",
   "description": "Interactive session analytics & HTML dashboard for Claude Code",
   "repository": {
     "type": "git",
