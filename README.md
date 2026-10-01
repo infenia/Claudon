@@ -46,6 +46,20 @@ cd claudon
 python3 claudon.py ~/.claude -o report.html --open
 ```
 
+### ⚡ WebAssembly (In-Browser / Zero Python)
+Run Claudon entirely in your browser without local Python installed:
+1. Open `wasm/index.html` in any web browser.
+2. Drag and drop or browse your Claude Code `.jsonl` transcript files.
+3. Generate and view the interactive report directly inside your browser.
+
+### 🛠️ Native Compilation (Nuitka)
+To compile Claudon into a single native binary:
+```bash
+pip install nuitka zstandard
+python scripts/build_nuitka.py --onefile
+```
+Standalone executables are output to `dist/`. Pre-built native binaries for Linux, macOS, and Windows are also automatically generated via GitHub Actions CI workflows.
+
 ---
 
 ## ⚡ Integration with Claude Code
