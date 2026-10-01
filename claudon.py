@@ -284,6 +284,30 @@ def discover(root):
     return base, sorted(p for p in base.rglob('*.jsonl') if 'tool-results' not in p.parts)
 
 
+def first_session_id(path):
+    """sessionId of the first record that has one; stops reading at the first match."""
+    with open(path, encoding='utf-8', errors='replace') as f:
+        for line in f:
+            if 'sessionId' not in line:
+                continue
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(r, dict) and r.get('sessionId'):
+                return r['sessionId']
+    return None
+
+
+def copy_last(item):
+    """Sort key: originals before forked/resumed copies, so shared history is credited to the original.
+    A copy's leading records carry the source session's id; file mtime only breaks ties."""
+    (proj, sid), files = item
+    main = [p for p, is_sub in files if not is_sub]
+    is_copy = bool(main) and first_session_id(main[0]) not in (None, sid)
+    return is_copy, min(p.stat().st_mtime for p, _ in files)
+
+
 def build(root):
     base, paths = discover(root)
     groups = collections.defaultdict(list)             # (project, session id) -> files
@@ -294,8 +318,7 @@ def build(root):
         sid = parts[parts.index('subagents') - 1] if sub else p.stem
         groups[(proj, sid)].append((p, sub))
     sessions, tasks, seen = [], [], set()
-    # main transcript first so forked copies lose to the original
-    for (proj, sid), files in sorted(groups.items(), key=lambda kv: min(f[0].stat().st_mtime for f in kv[1])):
+    for (proj, sid), files in sorted(groups.items(), key=copy_last):
         s, ts = analyze_session(sid, proj, sorted(files, key=lambda f: f[1]), seen)
         if s:
             sessions.append(s); tasks += ts
@@ -310,7 +333,7 @@ def build(root):
 
 
 def redact(d):
-    names, servers = {}, {}
+    names, servers, sids = {}, {}, {}
 
     def tool(n):                                    # mcp__<server>__<tool>: server names can be internal
         parts = n.split('__')
@@ -320,6 +343,8 @@ def redact(d):
 
     for t in d['tasks']:
         t['proj'] = names.setdefault(t['proj'], f'project-{len(names) + 1}')
+        t['sid'] = sids.setdefault(t['sid'], f'session-{len(sids) + 1}')
+        t['id'] = f"{t['sid']}#{t['id'].rsplit('#', 1)[1]}"
         t['prompt'] = f"Task {t['id']}"; t['title'] = ''
         t['slow'] = [[tool(n), dur, '', e] for n, dur, _, e in t['slow']]
         t['tool_stats'] = {tool(k): v for k, v in t['tool_stats'].items()}
@@ -328,6 +353,7 @@ def redact(d):
                 sg[3], sg[4] = tool(sg[3]), ''
     for x in d['sessions']:
         x['cwd'] = x['title'] = ''; x['label'] = x['proj'] = names.get(x['label'], '')
+        x['id'] = sids.get(x['id'], '')
     d['root'] = '(redacted)'
 
 
@@ -356,7 +382,7 @@ def load_pricing(path):
         sys.exit(f'--pricing {path}: {e}')
 
 
-def install_plugin():
+def install_plugin(force=False):
     cmd_dir = config_dir() / 'commands'
     cmd_dir.mkdir(parents=True, exist_ok=True)
     plugin_file = cmd_dir / 'claudon.md'
@@ -366,6 +392,13 @@ def install_plugin():
         "---\n\n"
         "Run `claudon -o cc_report.html --open` (or `npx claudon -o cc_report.html --open`) to analyze sessions.\n"
     )
+    if plugin_file.exists():
+        if plugin_file.read_text(encoding='utf-8') == plugin_content:
+            print(f"Claudon slash command is already up to date at {plugin_file}")
+            return
+        if not force:
+            sys.exit(f"{plugin_file} already exists with different content; "
+                     "re-run with --install-plugin --force to overwrite it")
     plugin_file.write_text(plugin_content, encoding='utf-8')
     print(f"Successfully installed Claudon slash command to {plugin_file}")
     print("You can now type /claudon inside Claude Code to launch analytics!")
@@ -380,9 +413,10 @@ def main():
     ap.add_argument('--redact', action='store_true', help='strip prompts, titles, paths, commands and project names (safe to share)')
     ap.add_argument('--open', action='store_true')
     ap.add_argument('--install-plugin', action='store_true', help='install /claudon slash command into <config dir>/commands/')
+    ap.add_argument('--force', action='store_true', help='with --install-plugin: overwrite a modified claudon.md')
     a = ap.parse_args()
     if a.install_plugin:
-        install_plugin()
+        install_plugin(a.force)
         return
     if a.pricing:
         PRICE.update(load_pricing(a.pricing))

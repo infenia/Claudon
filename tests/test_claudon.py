@@ -73,13 +73,15 @@ class TestClaudon(unittest.TestCase):
         tool = {"type": "tool_use", "id": "tu1", "name": "mcp__acme-internal__search", "input": {"query": "q"}}
         result = {"timestamp": "2026-01-01T12:00:07Z", "type": "user",
                   "message": {"content": [{"type": "tool_result", "tool_use_id": "tu1", "content": "ok"}]}}
-        f = self.write("p/proj/s.jsonl", [user(0, "secret prompt"), assistant(5, "m1", content=[tool]), result])
+        f = self.write("p/proj/0b5e7c2a-1111.jsonl", [user(0, "secret prompt"), assistant(5, "m1", content=[tool]), result])
         data = claudon.build(str(f))
         claudon.redact(data)
         dumped = json.dumps(data)
         self.assertNotIn("secret prompt", dumped)
         self.assertNotIn("acme-internal", dumped)
         self.assertIn("mcp__server-1__search", data["tasks"][0]["tool_stats"])
+        self.assertNotIn(f.stem, dumped)                  # session ids are replaced too
+        self.assertEqual(data["tasks"][0]["id"], "session-1#0")
 
     def test_price_lookup(self):
         p, est = claudon.price('claude-3-5-sonnet-20241022')
@@ -97,6 +99,29 @@ class TestClaudon(unittest.TestCase):
         cmd_file = fake_home / ".claude" / "commands" / "claudon.md"
         self.assertTrue(cmd_file.exists())
         self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
+
+    def test_install_plugin_keeps_user_edits_unless_forced(self):
+        cfg = self.tmp_path / "cfg"
+        cmd_file = cfg / "commands" / "claudon.md"
+        with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(cfg)}):
+            claudon.install_plugin()
+            claudon.install_plugin()                     # unchanged: no-op
+            cmd_file.write_text("my edits", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                claudon.install_plugin()
+            self.assertEqual(cmd_file.read_text(encoding="utf-8"), "my edits")
+            claudon.install_plugin(force=True)
+        self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
+
+    def test_shared_history_credited_to_original_not_copy(self):
+        orig = "11111111-aaaa"
+        copied = [dict(user(0, "hi"), sessionId=orig), dict(assistant(5, "shared"), sessionId=orig)]
+        self.write(f"p/proj/{orig}.jsonl", copied)
+        copy = self.write("p/proj/22222222-bbbb.jsonl",
+                          copied + [dict(user(10, "new"), sessionId="22222222-bbbb"), dict(assistant(15, "own"), sessionId="22222222-bbbb")])
+        os.utime(copy, (0, 0))                           # copy looks older, as after cp or a browser upload
+        calls = {t["sid"]: t["calls"] for t in claudon.build(str(self.tmp_path / "p"))["tasks"]}
+        self.assertEqual(calls, {orig: 1, "22222222-bbbb": 1})
 
     def test_install_plugin_honours_claude_config_dir(self):
         cfg = self.tmp_path / "cfg"
