@@ -10,7 +10,12 @@ async function text(url, init) {
 }
 
 const ready = (async () => {
-  const source = await text('../claudon.py');
+  let source;
+  try {
+    source = await text('claudon.py');
+  } catch (err) {
+    source = await text('../claudon.py');
+  }
   // importScripts() can't check SRI, so fetch with integrity and run the verified source from a blob.
   // This pins pyodide.js only; the .wasm/stdlib files it loads come unverified from the same version dir.
   const loader = await text(PYODIDE_URL + 'pyodide.js', { integrity: PYODIDE_SRI });
