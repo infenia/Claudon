@@ -96,23 +96,40 @@ def prompt_text(r):
     return t
 
 
-def usage_of(recs):
-    best = max((r['message'].get('usage') or {} for r in recs),
-               key=lambda u: sum(u.get(k) or 0 for k in ('input_tokens', 'output_tokens',
-                                                         'cache_read_input_tokens', 'cache_creation_input_tokens')))
-    keys = ('input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens')
-    if not sum(best.get(k) or 0 for k in keys):         # some logs keep real numbers only in iterations[]
-        its = [i for i in best.get('iterations') or [] if isinstance(i, dict) and i.get('type', 'message') == 'message']
-        best = {k: sum(i.get(k) or 0 for i in its) for k in keys} | {'cache_creation': its[-1].get('cache_creation') if its else None}
-    cc = best.get('cache_creation') or {}
+TOKEN_KEYS = ('input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens')
+
+
+def toks(d):
+    """usage-shaped dict -> dict(i, o, cr, c5, c1) with the cache-write split into 5m / 1h."""
+    cc = d.get('cache_creation') or {}
     cc1, cc5 = cc.get('ephemeral_1h_input_tokens') or 0, cc.get('ephemeral_5m_input_tokens') or 0
-    total_cc = best.get('cache_creation_input_tokens') or 0
+    total_cc = d.get('cache_creation_input_tokens') or 0
     if cc1 + cc5 != total_cc:
         cc5 = max(0, total_cc - cc1)
-    think = max(((r['message'].get('usage') or {}).get('output_tokens_details') or {}).get('thinking_tokens') or 0
-                for r in recs)
-    return dict(i=best.get('input_tokens') or 0, o=best.get('output_tokens') or 0,
-                cr=best.get('cache_read_input_tokens') or 0, c5=cc5, c1=cc1, think=think)
+    return dict(i=d.get('input_tokens') or 0, o=d.get('output_tokens') or 0,
+                cr=d.get('cache_read_input_tokens') or 0, c5=cc5, c1=cc1)
+
+
+def usage_of(recs):
+    usages = [r['message'].get('usage') or {} for r in recs]
+    best = max(usages, key=lambda u: sum(u.get(k) or 0 for k in TOKEN_KEYS))
+    # streamed records accumulate iterations[]; the longest list is the complete one
+    its = [i for i in max((u.get('iterations') or [] for u in usages), key=len) if isinstance(i, dict)]
+    if not sum(best.get(k) or 0 for k in TOKEN_KEYS):    # some logs keep real numbers only in iterations[]
+        main = [i for i in its if i.get('type', 'message') == 'message']
+        best = {k: sum(i.get(k) or 0 for i in main) for k in TOKEN_KEYS} | {'cache_creation': main[-1].get('cache_creation') if main else None}
+    think = max((u.get('output_tokens_details') or {}).get('thinking_tokens') or 0 for u in usages)
+    # advisor sub-calls are billed on top of the top-level usage, which covers only the executor
+    adv = [(i.get('model') or '?', toks(i)) for i in its if i.get('type') == 'advisor_message']
+    return toks(best) | dict(think=think, adv=adv, fast=best.get('speed') == 'fast')
+
+
+def cost_mix(u, model):
+    """-> ((fresh_in, out, cache_read, cache_write) in $, is_estimate)"""
+    p, est = price(model)
+    if u.get('fast'):                               # fast mode: 2x list price (documented for Opus 5 / 5.5)
+        p, est = tuple(2 * x for x in p), est or 'opus-5' not in (model or '').lower()
+    return (u['i'] * p[0] / 1e6, u['o'] * p[1] / 1e6, u['cr'] * p[2] / 1e6, (u['c5'] * p[3] + u['c1'] * p[4]) / 1e6), est
 
 
 def tool_desc(inp):
@@ -134,6 +151,11 @@ def ulen(iv):
         else:
             e = max(e, b)
     return tot + (e - s if e is not None else 0)
+
+
+def tok_sum(calls, k):
+    """token total over calls, advisor sub-calls included"""
+    return sum(c['u'][k] + sum(au[k] for _, au, _ in c['adv']) for c in calls)
 
 
 def analyze_session(sid, proj, files, seen_msgs):
@@ -186,9 +208,13 @@ def analyze_session(sid, proj, files, seen_msgs):
                     tools.append(dict(id=b.get('id'), name=b.get('name', '?'), ts=r['_ts'], desc=tool_desc(b.get('input'))))
         u = usage_of(rs)
         model = rs[0]['message'].get('model')
-        p, est = price(model)
-        mix = (u['i'] * p[0] / 1e6, u['o'] * p[1] / 1e6, u['cr'] * p[2] / 1e6, (u['c5'] * p[3] + u['c1'] * p[4]) / 1e6)
-        calls.append(dict(mid=mid, start=start, end=rs[-1]['_ts'], think_s=think_s, model=model or '?', u=u, cost=sum(mix), mix=mix,
+        mix, est = cost_mix(u, model)
+        adv = []
+        for am, au in u['adv']:
+            amix, aest = cost_mix(au, am)
+            adv.append((am, au, sum(amix)))
+            mix, est = tuple(a + b for a, b in zip(mix, amix)), est or aest
+        calls.append(dict(adv=adv, mid=mid, start=start, end=rs[-1]['_ts'], think_s=think_s, model=model or '?', u=u, cost=sum(mix), mix=mix,
                           est=est, sub=first['_sub'], tools=tools, eff=first.get('effort'),
                           ctx=u['i'] + u['cr'] + u['c5'] + u['c1']))
     seen_msgs.update(c['mid'] for c in calls)
@@ -260,6 +286,10 @@ def analyze_session(sid, proj, files, seen_msgs):
             m = models.setdefault(c['model'], [0, 0.0, 0, 0, 0.0, 0.0, 0, 0, 0])  # calls,cost,out,think_tok,dur,think_s,in,cr,cc
             m[0] += 1; m[1] += c['cost']; m[2] += c['u']['o']; m[3] += c['u']['think']; m[4] += c['end'] - c['start']
             m[5] += c['think_s']; m[6] += c['u']['i']; m[7] += c['u']['cr']; m[8] += c['u']['c5'] + c['u']['c1']
+            m[1] -= sum(x[2] for x in c['adv'])                 # advisor share is booked on its own row
+            for am, au, acost in c['adv']:
+                a = models.setdefault(f'{am} (advisor)', [0, 0.0, 0, 0, 0.0, 0.0, 0, 0, 0])
+                a[0] += 1; a[1] += acost; a[2] += au['o']; a[6] += au['i']; a[7] += au['cr']; a[8] += au['c5'] + au['c1']
         if len(segs) > MAX_SEGS:
             segs = sorted(sorted(segs, key=lambda s: -s[2])[:MAX_SEGS], key=lambda s: s[1])
         ctx = [[round(c['start'] - t0, 1), c['ctx']] for c in sorted(main, key=lambda c: c['start'])]
@@ -272,9 +302,8 @@ def analyze_session(sid, proj, files, seen_msgs):
             wait_s=round(max(0, wall - u_u), 2),
             calls=len(main), sub_calls=len(cs) - len(main), tools=sum(len(c['tools']) for c in cs),
             think_calls=sum(1 for c in cs if c['think_s'] > 0), think_s=round(sum(c['think_s'] for c in cs), 2),
-            think_tok=sum(c['u']['think'] for c in cs), out_tok=sum(c['u']['o'] for c in cs),
-            in_tok=sum(c['u']['i'] for c in cs), cr_tok=sum(c['u']['cr'] for c in cs),
-            cc_tok=sum(c['u']['c5'] + c['u']['c1'] for c in cs),
+            think_tok=sum(c['u']['think'] for c in cs), out_tok=tok_sum(cs, 'o'),
+            in_tok=tok_sum(cs, 'i'), cr_tok=tok_sum(cs, 'cr'), cc_tok=tok_sum(cs, 'c5') + tok_sum(cs, 'c1'),
             cost=round(sum(c['cost'] for c in cs), 5), cost_mix=[round(sum(c['mix'][i] for c in cs), 5) for i in range(4)],
             sub_cost=round(sum(c['cost'] for c in cs if c['sub']), 5),
             est=any(c['est'] for c in cs), ctx_max=max(c['ctx'] for c in cs), compacts=[[round(ct - t0, 1), dur, pre, post] for ct, dur, pre, post in t['compacts']],
@@ -592,7 +621,7 @@ const views=[overview,tasksView,toolsView,modelsView,bottlenecks];
 function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=>b.classList.toggle('on',i==tab));
  $('#view').innerHTML=F.length?views[tab]():'<div class="card">No tasks match.</div>'}
 $('#foot').innerHTML=`Generated ${D.generated} from <code>${esc(D.root)}</code> (${D.files} files, ${D.sessions.length} sessions). A <b>task</b> = one human prompt through to the last activity before the next prompt; a <b>turn</b> = one model API call.
- Costs are <b>estimates</b> from token usage × configured $/MTok rates (${esc(JSON.stringify(D.price))}); * = includes models with unknown pricing. Estimates typically land ~90-95% of the CLI's own reported total (advisor/side calls are not in transcripts). Subagent transcripts are attributed to the task running when they started.
+ Costs are <b>estimates</b> from token usage × configured $/MTok rates (${esc(JSON.stringify(D.price))}); * = includes models with unknown pricing. On real transcripts estimates land at a median ~95% of the CLI's own reported total; advisor sub-calls and fast mode are priced, server-tool fees (e.g. web search) are not. Subagent transcripts are attributed to the task running when they started.
  Time split uses interval union (model &gt; tools &gt; subagent &gt; user tools), so parallel work is not double counted; "idle" is time with no model or tool activity.`;
 document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task]');if(!el)return;
  if(el.dataset.t!=null){tab=+el.dataset.t;render()}else if(el.dataset.s){const[id,i]=el.dataset.s.split('|'),s=sorts[id];s.d=s.i==+i?-s.d:-1;s.i=+i;render();if(cur&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)}

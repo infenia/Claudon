@@ -151,6 +151,25 @@ class TestClaudon(unittest.TestCase):
             tasks = claudon.build(str(self.tmp_path / path))["tasks"]
             self.assertEqual([(t["calls"], t["sub_calls"]) for t in tasks], [(1, 1)], path)
 
+    def test_advisor_iterations_are_priced_on_their_own_row(self):
+        a = assistant(5, "m1", model="claude-sonnet-5-5")
+        a["message"]["usage"] = {"input_tokens": 100, "output_tokens": 50, "iterations": [
+            {"type": "message", "input_tokens": 100, "output_tokens": 50},
+            {"type": "advisor_message", "model": "claude-opus-5-5", "input_tokens": 1000, "output_tokens": 200}]}
+        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
+        executor, advisor = (100 * 2 + 50 * 10) / 1e6, (1000 * 4 + 200 * 20) / 1e6
+        self.assertAlmostEqual(t["cost"], executor + advisor)
+        self.assertAlmostEqual(t["models"]["claude-opus-5-5 (advisor)"][1], advisor)
+        self.assertAlmostEqual(t["models"]["claude-sonnet-5-5"][1], executor)
+        self.assertEqual((t["calls"], t["out_tok"]), (1, 250))
+
+    def test_fast_mode_doubles_price(self):
+        a = assistant(5, "m1", model="claude-opus-5-5")
+        a["message"]["usage"] = {"input_tokens": 1000, "output_tokens": 100, "speed": "fast"}
+        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
+        self.assertAlmostEqual(t["cost"], (1000 * 8 + 100 * 40) / 1e6)
+        self.assertFalse(t["est"])
+
     def test_shared_history_credited_to_original_not_copy(self):
         orig = "11111111-aaaa"
         copied = [dict(user(0, "hi"), sessionId=orig), dict(assistant(5, "shared"), sessionId=orig)]
