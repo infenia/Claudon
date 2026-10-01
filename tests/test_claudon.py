@@ -28,18 +28,11 @@ class TestClaudon(unittest.TestCase):
 
     def test_install_plugin(self):
         fake_home = self.tmp_path / "home"
-        orig_home = os.environ.get("HOME")
         os.environ["HOME"] = str(fake_home)
-        try:
-            claudon.install_plugin()
-            cmd_file = fake_home / ".claude" / "commands" / "claudon.md"
-            self.assertTrue(cmd_file.exists())
-            self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
-        finally:
-            if orig_home is not None:
-                os.environ["HOME"] = orig_home
-            else:
-                os.environ.pop("HOME", None)
+        claudon.install_plugin()
+        cmd_file = fake_home / ".claude" / "commands" / "claudon.md"
+        self.assertTrue(cmd_file.exists())
+        self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
 
     def test_build_and_redact(self):
         # Create a mock session .jsonl file with valid prompt & assistant record

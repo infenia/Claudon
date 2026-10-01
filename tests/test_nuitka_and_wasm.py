@@ -38,15 +38,14 @@ class TestNuitkaAndWasm(unittest.TestCase):
         content = workflow_file.read_text(encoding="utf-8")
         self.assertIn("Nuitka Build", content)
         self.assertIn("build_nuitka.py", content)
-        self.assertIn("'v*'", content)
+        self.assertIn("workflow_dispatch", content)
 
     def test_release_workflow(self):
         release_file = ROOT_DIR / ".github" / "workflows" / "release.yml"
         self.assertTrue(release_file.exists(), ".github/workflows/release.yml should exist")
 
         content = release_file.read_text(encoding="utf-8")
-        self.assertIn("Publish Semantic Release", content)
-        self.assertIn("'v*'", content)
+        self.assertIn("workflow_dispatch", content)
         self.assertIn("Publish to PyPI", content)
         self.assertIn("Publish to npm", content)
 
@@ -58,7 +57,8 @@ class TestNuitkaAndWasm(unittest.TestCase):
         self.assertIn("Semantic Versioning", content)
         self.assertIn("pyproject.toml", content)
         self.assertIn("package.json", content)
-        self.assertIn("git tag", content)
+        self.assertIn("workflow_dispatch", content)
+        self.assertIn("Beta Testing", content)
 
 
 if __name__ == "__main__":

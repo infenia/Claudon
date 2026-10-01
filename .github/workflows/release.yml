@@ -1,10 +1,22 @@
-name: Publish Semantic Release (PyPI & npm)
+name: Manual Publish Release (PyPI & npm)
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      npm_tag:
+        description: 'npm dist-tag (e.g. latest, beta, next)'
+        required: true
+        default: 'latest'
+      publish_pypi:
+        description: 'Publish to PyPI'
+        type: boolean
+        required: false
+        default: true
+      publish_npm:
+        description: 'Publish to npm'
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: read
@@ -13,6 +25,7 @@ permissions:
 jobs:
   publish-pypi:
     name: Publish to PyPI (uvx / pipx / pip)
+    if: ${{ inputs.publish_pypi }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +50,7 @@ jobs:
 
   publish-npm:
     name: Publish to npm (npx / bunx)
+    if: ${{ inputs.publish_npm }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,8 +61,8 @@ jobs:
           node-version: "20.x"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Publish to npm
-        run: npm publish --access public
+      - name: Publish to npm with tag
+        run: npm publish --access public --tag ${{ inputs.npm_tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         continue-on-error: true

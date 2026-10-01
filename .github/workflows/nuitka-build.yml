@@ -1,12 +1,17 @@
-name: Nuitka Build & Release Standalone Binaries
+name: Manual Nuitka Build & Release Standalone Binaries
 
 on:
-  push:
-    branches: [ main, master ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v0.1.0 or v0.2.0b1)'
+        required: true
+        default: 'v0.1.0'
+      is_prerelease:
+        description: 'Mark as GitHub Prerelease / Beta'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -60,10 +65,11 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: release_assets/
 
-      - name: Release to GitHub Releases on Semantic Tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release to GitHub Releases (Manual Trigger)
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag_name }}
+          prerelease: ${{ inputs.is_prerelease }}
           files: release_assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
