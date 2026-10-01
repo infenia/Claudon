@@ -20,7 +20,11 @@ class TestClaudonUI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.playwright = sync_playwright().start()
-        cls.browser = cls.playwright.chromium.launch(headless=True)
+        try:
+            cls.browser = cls.playwright.chromium.launch(headless=True)
+        except Exception as e:
+            cls.playwright.stop()
+            raise unittest.SkipTest(f"Playwright chromium browser not available: {e}")
 
     @classmethod
     def tearDownClass(cls):

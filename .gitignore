@@ -14,3 +14,4 @@ node_modules/
 cc_report.html
 report.html
 *.html
+!wasm/index.html
