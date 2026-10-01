@@ -2,7 +2,7 @@
 """Build script to compile claudon.py into a native standalone executable using Nuitka.
 
 Usage:
-    python scripts/build_nuitka.py [--onefile] [--output-dir DIST_DIR]
+    python scripts/build_nuitka.py [--onefile | --standalone] [--output-dir DIST_DIR] [NUITKA_OPTION ...]
 """
 import argparse
 import subprocess
@@ -63,9 +63,13 @@ def build_nuitka(onefile=True, output_dir=None, extra_args=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compile claudon.py using Nuitka.")
-    parser.add_argument("--onefile", action="store_true", default=True, help="Create a single file executable (default: True)")
-    parser.add_argument("--standalone", action="store_false", dest="onefile", help="Create a standalone directory distribution instead of single file")
+    parser = argparse.ArgumentParser(description="Compile claudon.py using Nuitka.",
+                                     epilog="Unrecognised options are passed through to Nuitka.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--onefile", dest="onefile", action="store_true", default=True,
+                      help="Create a single-file executable (the default)")
+    mode.add_argument("--standalone", dest="onefile", action="store_false",
+                      help="Create a standalone directory distribution instead of a single file")
     parser.add_argument("--output-dir", default=str(ROOT_DIR / "dist"), help="Output directory for compiled binary")
     args, extra_args = parser.parse_known_args()
 
