@@ -1,5 +1,4 @@
 import json
-import os
 import sys
 import tempfile
 import unittest
@@ -133,7 +132,7 @@ class TestClaudonUI(unittest.TestCase):
 
         # Active tab styling
         active_btn = nav_buttons.nth(0)
-        self.assertTrue("on" in active_btn.get_attribute("class"))
+        self.assertIn("on", active_btn.get_attribute("class"))
         active_bg = active_btn.evaluate("el => getComputedStyle(el).backgroundColor")
         self.assertEqual(active_bg, "rgb(59, 130, 246)")  # var(--model)
 
