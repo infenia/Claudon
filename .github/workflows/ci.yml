@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
+          cache: pip
       - name: Ruff
         run: pipx run ruff==0.16.9 check .
       - name: Versions agree (claudon.py, package.json)
@@ -44,9 +45,11 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies & Playwright
+          cache: pip
+      # Only tests/test_ui.py needs a browser (it skips itself without Playwright); one job covers the rendered UI.
+      - name: Install Playwright (UI tests run on this job only)
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
         run: |
-          python -m pip install --upgrade pip
           pip install playwright
           playwright install chromium --with-deps
       - name: Run Python unit tests
@@ -78,6 +81,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
+          cache: pip
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
