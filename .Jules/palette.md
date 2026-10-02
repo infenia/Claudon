@@ -1,0 +1,3 @@
+## 2025-02-17 - Tabbed Segmented Control Accessibility in Single-File Dashboard
+**Learning:** In single-file HTML reports generated from JSON transcripts, nav buttons often lack ARIA roles and proper focus management for keyboard users. Adding `role="tablist"` on the container and `role="tab"` with dynamic `aria-selected` attributes on buttons ensures screen readers communicate active view states without changing complex DOM structures.
+**Action:** Always wrap view navigation in a segmented container with explicit `role="tablist"` and update `aria-selected` in the view render cycle alongside active CSS classes.
