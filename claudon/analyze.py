@@ -1,7 +1,7 @@
-import bisect, collections, re
+import bisect, collections, json, re
 
 from .pricing import cost_mix
-from .transcript import load, num, prompt_text, ts_of, usage_of
+from .transcript import load, num, prompt_text, text_of, ts_of, usage_of
 
 AGENT_TOOLS = {'Task', 'Agent'}
 USER_TOOLS = {'AskUserQuestion', 'ExitPlanMode'}
@@ -9,6 +9,14 @@ USER_TOOLS = {'AskUserQuestion', 'ExitPlanMode'}
 USER_STOP = re.compile(r"doesn't want to proceed|tool use was rejected|\[Request interrupted by user", re.I)
 MAX_SEGS = 1200
 IDLE_SPLIT = 1800                                # seconds of silence that ends a task
+# tools that return in well under a second, so a long tool_use -> tool_result gap is the user approving it
+INSTANT_TOOLS = {'Read', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Glob', 'Grep', 'LS', 'TodoWrite'}
+APPROVAL_MIN = 5                                 # seconds
+DUP_TOOLS = {'Read', 'Grep', 'Glob', 'LS'}       # identical repeats (same full input) are wasted turns
+EDIT_TOOLS = {'Edit', 'Write', 'MultiEdit', 'NotebookEdit'}
+CHURN_MIN = 3                                    # edits to one file before it counts as rework
+CACHE_TTL = 300                                  # default prompt-cache lifetime (5 min)
+CACHE_MIN_CTX = 10000                            # smaller contexts are cheap to re-write
 
 
 def tool_desc(inp):
@@ -16,7 +24,9 @@ def tool_desc(inp):
         return ''
     for k in ('command', 'file_path', 'pattern', 'description', 'prompt', 'query', 'url', 'path'):
         if inp.get(k):
-            return str(inp[k]).replace('\n', ' ')[:110]
+            s = str(inp[k]).replace('\n', ' ')
+            # a long path keeps its end: the file name is what identifies it
+            return ('…' + s[-109:] if len(s) > 110 else s) if k in ('file_path', 'path') else s[:110]
     return ''
 
 
@@ -47,7 +57,7 @@ def split(wall, u_m, u_t, u_a, u_u):
 
 # Row layouts. The dashboard JS reads these arrays by index, so the order is part of the report format.
 M_CALLS, M_COST, M_OUT, M_THINK_TOK, M_DUR, M_THINK_S, M_IN, M_CR, M_CC = range(9)     # models[name]
-T_N, T_ERR, T_SUM, T_MAX, T_INT = range(5)                                              # tool_stats[name]
+T_N, T_ERR, T_SUM, T_MAX, T_INT, T_DONE = range(6)                                      # tool_stats[name]
 
 
 def _load_records(files):
@@ -107,8 +117,10 @@ def _build_calls(recs, seen_msgs):
             for b in blocks:
                 if isinstance(b, dict) and b.get('type') == 'tool_use':
                     tid, name = b.get('id'), b.get('name')
-                    tools.append(dict(id=tid if isinstance(tid, str) else None, name=name if isinstance(name, str) and name else '?',
-                                      ts=r['_ts'], desc=tool_desc(b.get('input'))))
+                    name = name if isinstance(name, str) and name else '?'
+                    # full input, so paging through one file (same path, other offset) is not a repeat
+                    sig = json.dumps(b.get('input'), sort_keys=True, default=str)[:400] if name in DUP_TOOLS else ''
+                    tools.append(dict(id=tid if isinstance(tid, str) else None, name=name, ts=r['_ts'], desc=tool_desc(b.get('input')), sig=sig))
         u = usage_of(rs)
         model = rs[0]['message'].get('model')
         model = model if isinstance(model, str) else None
@@ -152,6 +164,8 @@ def _bucket(recs, calls, prompts):
     for r in recs:
         if r['_ts'] and r['type'] in ('assistant', 'user'):
             T[idx(r['_ts'])]['ends'].append(r['_ts'])
+        if r['type'] == 'user' and r['_ts'] and not r['_sub'] and text_of(r['message'].get('content')).lstrip().startswith('[Request interrupted by user'):
+            T[idx(r['_ts'])]['interrupts'] += 1
         if r['type'] == 'system' and r.get('subtype') == 'compact_boundary' and r['_ts']:
             m = r.get('compactMetadata') or {}
             m = m if isinstance(m, dict) else {}
@@ -165,19 +179,20 @@ def _summarise_task(n, t, sid, proj, title, results):
     t0, t1 = t['start'], max(max(t['ends']), max(c['end'] for c in cs))
     wall = max(t1 - t0, 0.01)                       # stays > 0 after round(wall, 2)
     clip = lambda a, b: (max(a, t0), min(b, t1))
-    mi, ti, ai, ui, tool_stats, tcalls, segs = [], [], [], [], {}, [], []
+    mi, ti, ai, ui, tool_stats, tcalls, segs, evs = [], [], [], [], {}, [], [], []
     for c in cs:
         mi.append(clip(c['start'], c['end']))
         segs.append(['ms' if c['sub'] else 'm', round(c['start'] - t0, 2), round(c['end'] - c['start'], 2),
                      c['model'], round(c['think_s'], 2), c['u']['o']])
         for tu in c['tools']:
             res = results.get(tu['id'])
-            st = tool_stats.setdefault(tu['name'], [0, 0, 0.0, 0.0, 0])
+            st = tool_stats.setdefault(tu['name'], [0, 0, 0.0, 0.0, 0, 0])
             st[T_N] += 1
             if not res:
                 continue
             d = max(0.0, res[0] - tu['ts'])
-            st[T_ERR] += res[1]; st[T_SUM] += d; st[T_MAX] = max(st[T_MAX], d); st[T_INT] += res[2]
+            st[T_ERR] += res[1]; st[T_SUM] += d; st[T_MAX] = max(st[T_MAX], d); st[T_INT] += res[2]; st[T_DONE] += 1
+            evs.append((tu['ts'], tu['name'], tu['desc'], tu['sig'], d, res[1]))
             (ai if tu['name'] in AGENT_TOOLS else ui if tu['name'] in USER_TOOLS else ti).append(clip(tu['ts'], res[0]))
             segs.append(['ts' if c['sub'] else 'te' if res[1] else 't', round(tu['ts'] - t0, 2), round(d, 2), tu['name'], tu['desc'], 0])
             tcalls.append([tu['name'], round(d, 1), tu['desc'], int(res[1])])
@@ -211,7 +226,35 @@ def _summarise_task(n, t, sid, proj, title, results):
         sub_cost=round(sum(c['cost'] for c in cs if c['sub']), 5),
         est=any(c['est'] for c in cs), ctx_max=max(c['ctx'] for c in cs), compacts=[[round(ct - t0, 1), dur, pre, post] for ct, dur, pre, post in t['compacts']],
         models=models, tool_stats=tool_stats, slow=tcalls, segs=segs, ctx=ctx,
-        efforts=sorted({str(c['eff']) for c in cs if c['eff']}))
+        efforts=sorted({str(c['eff']) for c in cs if c['eff']}), **_waste(main, evs, t['interrupts']))
+
+
+def _waste(main, evs, interrupts):
+    """Avoidable-time signals for one task: approval waits, expired caches, repeated calls, edit churn, error streaks.
+    main: main-agent calls; evs: resolved tool calls [(ts, name, desc, input signature, seconds, failed)]."""
+    evs.sort(key=lambda e: e[0])
+    approval = sum(d for _, name, _, _, d, _ in evs if name in INSTANT_TOOLS and d > APPROVAL_MIN)
+    miss = [0, 0, 0.0]                              # [calls, tokens re-written, $ of those writes]
+    main = sorted(main, key=lambda c: c['start'])
+    for p, c in zip(main, main[1:]):
+        cw = c['u']['c5'] + c['u']['c1']
+        # most of the previous context had to be written again after a pause longer than the cache lifetime
+        if p['ctx'] >= CACHE_MIN_CTX and c['start'] - p['end'] > CACHE_TTL and c['u']['cr'] < p['ctx'] / 2 and cw >= p['ctx'] / 2:
+            miss[0] += 1; miss[1] += cw; miss[2] += c['mix'][3]
+    dup, label = collections.Counter(), {}
+    for _, name, desc, sig, _, _ in evs:
+        if sig:
+            dup[name, sig] += 1; label[name, sig] = desc
+    churn = collections.Counter(desc for _, name, desc, _, _, _ in evs if name in EDIT_TOOLS and desc)
+    streak = run = 0
+    for *_, failed in evs:
+        run = run + 1 if failed else 0
+        streak = max(streak, run)
+    return dict(approval_s=round(approval, 2), cache_miss=[miss[0], miss[1], round(miss[2], 5)],
+                dup_calls=sum(n - 1 for n in dup.values()),
+                dups=[[k[0], label[k], n] for k, n in dup.most_common(3) if n > 1],
+                churn=[[path, n] for path, n in churn.most_common(3) if n >= CHURN_MIN],
+                err_streak=streak, interrupts=interrupts)
 
 
 def analyze_session(sid, proj, files, seen_msgs):

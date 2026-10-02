@@ -29,8 +29,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 .leg span{margin-right:14px;font-size:12px;color:var(--mute)}.leg b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .hb{height:8px;background:var(--model);border-radius:4px;min-width:1px}
 .days{display:flex;align-items:flex-end;gap:2px;height:110px}.days div{flex:1;background:var(--model);min-width:2px;border-radius:2px 2px 0 0}
-.find{border-left:4px solid var(--tool);padding:6px 12px;margin:10px 0;background:var(--bg);border-radius:0 6px 6px 0}.find.hi{border-color:var(--err)}.find.lo{border-color:var(--model)}
-.find b{display:block}.chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
+.find{border-left:4px solid var(--tool);padding:8px 12px;margin:10px 0;background:var(--bg);border-radius:0 6px 6px 0}.find.hi{border-color:var(--err)}.find.info{border-color:var(--model)}
+.find .fh{display:flex;gap:12px;align-items:baseline;margin-bottom:2px}.find .fh b{flex:1}.imp{color:var(--mute);font-size:12px;white-space:nowrap}.fix{margin-top:4px}.find:target{outline:2px solid var(--model)}.chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
 #modal{position:fixed;inset:0;background:#0008;display:none;z-index:10;overflow:auto;padding:30px}#modal>div{background:var(--card);max-width:1200px;margin:auto;border-radius:12px;padding:20px;position:relative}
 #x{position:absolute;right:14px;top:10px;cursor:pointer;font-size:22px;line-height:1;color:var(--mute);background:none;border:0;padding:4px 8px;border-radius:6px}#x:hover{background:var(--bg);color:var(--text,inherit)}
 .gantt{position:relative;border:1px solid var(--line);border-radius:6px;margin:8px 0 4px;background:var(--bg)}.lane{position:relative;height:24px;border-bottom:1px dashed var(--line)}
@@ -79,7 +79,7 @@ const kpi=(k,v,s='')=>`<div class="card"><div class="k">${esc(k)}</div><div clas
 const A=a=>({wall:sum(a,t=>t.wall),model:sum(a,t=>t.model_s),tool:sum(a,t=>t.tool_s),agent:sum(a,t=>t.agent_s),user:sum(a,t=>t.user_s),wait:sum(a,t=>t.wait_s),
  calls:sum(a,t=>t.calls),sub:sum(a,t=>t.sub_calls),tools:sum(a,t=>t.tools),cost:sum(a,t=>t.cost),think:sum(a,t=>t.think_s),thinkTok:sum(a,t=>t.think_tok),
  out:sum(a,t=>t.out_tok),inp:sum(a,t=>t.in_tok),cr:sum(a,t=>t.cr_tok),cc:sum(a,t=>t.cc_tok)});
-function toolAgg(a){const m=Object.create(null);a.forEach(t=>Object.entries(t.tool_stats).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0]);x[1]+=v[0];x[2]+=v[1];x[3]+=v[2];x[4]=Math.max(x[4],v[3]);x[5]+=v[4]}));return Object.values(m)}
+function toolAgg(a){const m=Object.create(null);a.forEach(t=>Object.entries(t.tool_stats).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0,0]);x[1]+=v[0];x[2]+=v[1];x[3]+=v[2];x[4]=Math.max(x[4],v[3]);x[5]+=v[4];x[6]+=v[5]}));return Object.values(m)}
 function modelAgg(a){const m=Object.create(null);a.forEach(t=>Object.entries(t.models).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0,0,0,0,0]);for(let i=0;i<9;i++)x[i+1]+=v[i]}));return Object.values(m)}
 
 function overview(){const a=A(F),sess=new Set(F.map(t=>t.sid)).size,cacheHit=a.cr/Math.max(1,a.cr+a.inp+a.cc);
@@ -89,7 +89,7 @@ function overview(){const a=A(F),sess=new Set(F.map(t=>t.sid)).size,cacheHit=a.c
  return `<div class="grid">${kpi('Tasks',F.length,sess+' sessions')}${kpi('API turns',N(a.calls),N(a.sub)+' by subagents')}${kpi('Tool calls',N(a.tools))}
  ${kpi('Wall time',T(a.wall),'sum over tasks')}${kpi('Model time',T(a.model),P(a.model/a.wall)+' of wall')}${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time')}
  ${kpi('Est. cost',$$(a.cost),$$(a.cost/F.length)+' / task')}${kpi('Output tokens',N(a.out),'thinking '+N(a.thinkTok)+' (where reported)')}${kpi('Cache hit',P(cacheHit),'of input-side tokens')}</div>
- <div class="card"><h2>Where the wall-clock time goes</h2>${bar({wall:a.wall,model_s:a.model,tool_s:a.tool,agent_s:a.agent,user_s:a.user,wait_s:a.wait})}<div style="height:8px"></div>${legend}
+ <div class="card"><h2>Where the wall-clock time goes</h2>${totBar(a)}<div style="height:8px"></div>${legend}
  <div class="s" style="margin-top:6px">model ${T(a.model)} (${P(a.model/a.wall)}) · tools ${T(a.tool)} (${P(a.tool/a.wall)}) · subagent wait ${T(a.agent)} · user prompts ${T(a.user)} · idle ${T(a.wait)} (${P(a.wait/a.wall)})</div></div>
  <div class="cols"><div class="card"><h2>Per-task distribution</h2><table><tr><th></th><th class="n">median</th><th class="n">p90</th><th class="n">max</th></tr>
  ${dist('API turns',t=>t.calls,N)}${dist('Tool calls',t=>t.tools,N)}${dist('Wall time',t=>t.wall,T)}${dist('Thinking time',t=>t.think_s,T)}${dist('Cost',t=>t.cost,$$)}${dist('Peak context',t=>t.ctx_max,N)}</table></div>
@@ -108,7 +108,7 @@ function tasksView(){return `<div class="card">${legend}<div style="height:8px">
 function toolsView(){const rows=toolAgg(F),tot=sum(rows,r=>r[3])||1,mx=Math.max(...rows.map(r=>r[3]),1);
  const slow=F.flatMap(t=>t.slow.map(s=>[...s,t])).sort((a,b)=>b[1]-a[1]);
  return `<div class="card"><h2>Tools by total time</h2>`+tbl('tools',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>N(r[1]),v:r=>r[1]},{h:'Errors',n:1,f:r=>r[2]?`${r[2]} <span class="s">(${P(r[2]/r[1])})</span>`:'–',v:r=>r[2]/r[1]},
- {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="hb t" style="width:${r[3]/mx*100}%"></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/r[1]).toFixed(1)+'s',v:r=>r[3]/r[1]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'<span class="tip" title="calls the user rejected or interrupted; not counted as errors">Rejected</span>',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
+ {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="hb t" style="width:${r[3]/mx*100}%"></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/Math.max(1,r[6])).toFixed(1)+'s',v:r=>r[3]/Math.max(1,r[6])},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'<span class="tip" title="calls the user rejected or interrupted; not counted as errors">Rejected</span>',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
  `<div class="s">Tool duration = tool_use → tool_result timestamps, so it includes time spent waiting on permission prompts. Subagent (Task/Agent) calls are counted here but painted separately in the time split.</div></div>
  <div class="card"><h2>Slowest individual calls</h2>`+tbl('slow',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Duration',n:1,d:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr">${esc(r[2])}</div>`,v:r=>r[2]},{h:'Err',f:r=>r[3]?'✗':'',v:r=>r[3]},{h:'Task',f:r=>`<span class="chip" data-task="${esc(r[4].id)}">${esc(r[4].prompt.slice(0,50))}</span>`,v:r=>r[4].prompt}],slow,25)+'</div>'}
 
@@ -121,22 +121,103 @@ function modelsView(){const rows=modelAgg(F),a=A(F);
  <div class="s" style="margin-top:8px">Thinking text is redacted in the transcripts, so thinking time is measured as the gap between a request and its thinking block being written; tokens come from <code>usage.output_tokens_details.thinking_tokens</code> when the log has it.</div>
  <h2 style="margin-top:14px">Most thinking-heavy tasks</h2>`+tbl('think',[{h:'Task',f:t=>`<div class="pr">${esc(t.prompt)}</div>`,v:t=>t.prompt},{h:'Think time',n:1,d:1,f:t=>T(t.think_s),v:t=>t.think_s},{h:'% of model time',n:1,f:t=>P(t.think_s/Math.max(1,t.model_s)),v:t=>t.think_s/Math.max(1,t.model_s)},{h:'Think tok',n:1,f:t=>N(t.think_tok),v:t=>t.think_tok},{h:'Wall',n:1,f:t=>T(t.wall),v:t=>t.wall}],F,15,t=>t.id)+'</div>'}
 
-function bottlenecks(){const a=A(F),out=[],ids=(l,n=6)=>l.slice(0,n).map(t=>t.id),top=(f,n=5)=>[...F].sort((x,y)=>f(y)-f(x)).slice(0,n);
- const cats=[['model inference',a.model],['tool execution',a.tool],['subagent waits',a.agent],['idle / waiting',a.wait]].sort((x,y)=>y[1]-x[1]);
- out.push(['lo',`Biggest time sink: ${cats[0][0]} (${P(cats[0][1]/a.wall)} of wall time)`,`Breakdown: ${cats.map(c=>c[0]+' '+P(c[1]/a.wall)).join(' · ')}.`,[]]);
- const idle=F.filter(t=>t.wall>60&&t.wait_s/t.wall>.4);if(idle.length)out.push(['hi',`${idle.length} tasks were mostly idle (>40% of time with no model or tool activity)`,`Typically permission prompts, a person reading, background jobs, or hook/startup latency. Total idle ${T(sum(idle,t=>t.wait_s))}. Worst offenders:`,ids(top(t=>t.wait_s).filter(t=>idle.includes(t)))]);
- const tr=toolAgg(F).sort((x,y)=>y[3]-x[3]);if(tr.length)out.push(['',`Slowest tool category: ${tr[0][0]} — ${T(tr[0][3])} total (${P(tr[0][3]/Math.max(1,a.tool+a.agent))} of tool time)`,`Avg ${(tr[0][3]/tr[0][1]).toFixed(1)}s over ${tr[0][1]} calls, max ${T(tr[0][4])}. Next: ${tr.slice(1,4).map(r=>r[0]+' '+T(r[3])).join(', ')}.`,[]]);
- const bad=toolAgg(F).filter(r=>r[1]>=8&&r[2]/r[1]>.15).sort((x,y)=>y[2]/y[1]-x[2]/x[1]);if(bad.length)out.push(['hi','Tools with high failure rates (retry churn)',bad.slice(0,5).map(r=>`${r[0]}: ${r[2]}/${r[1]} failed (${P(r[2]/r[1])})`).join(' · ')+'. Each failure usually costs another full model round-trip.',ids(top(t=>sum(Object.values(t.tool_stats),v=>v[1]))) ]);
- const big=F.filter(t=>t.ctx_max>400000);if(big.length)out.push(['hi',`${big.length} tasks grew context past 400k tokens`,`Every extra turn re-reads the whole context (cache reads) — these tasks cost ${$$(sum(big,t=>t.cost))} (${P(sum(big,t=>t.cost)/a.cost)} of spend). Compact or split them earlier.`,ids(top(t=>t.ctx_max).filter(t=>big.includes(t)))]);
- const th=F.filter(t=>t.model_s>30&&t.think_s/t.model_s>.35);if(th.length)out.push(['',`${th.length} tasks spent >35% of model time thinking`,`Total ${T(sum(th,t=>t.think_s))}. Lowering effort level or giving more precise prompts would shorten these.`,ids(top(t=>t.think_s).filter(t=>th.includes(t)))]);
- const many=top(t=>t.calls);out.push(['',`Most turns for a single task: ${many[0].calls} API round-trips`,`Median task takes ${Q(F.map(t=>t.calls),.5)} turns, p90 ${Q(F.map(t=>t.calls),.9)}. Long tails usually mean exploration loops or rework.`,ids(many)]);
- const cmp=sum(F,t=>t.compacts.length);if(cmp)out.push(['',`${cmp} context compactions`,`Total compaction time ${T(sum(F,t=>sum(t.compacts,c=>c[1])))}; each one discards history the agent may need to re-read.`,ids(F.filter(t=>t.compacts.length))]);
- const sorted=[...F].sort((x,y)=>y.cost-x.cost),k=Math.max(1,Math.ceil(F.length*.05)),topc=sum(sorted.slice(0,k),t=>t.cost);
- out.push(['',`Cost is concentrated: top ${k} task${k>1?'s':''} (5%) = ${P(topc/a.cost)} of spend`,`${$$(topc)} of ${$$(a.cost)}.`,ids(sorted)]);
- const slow=top(t=>t.wall);out.push(['',`Longest tasks by wall time`,'',ids(slow)]);
- return `<div class="card"><h2>Automatic findings</h2>`+out.map(([c,h,b,l])=>`<div class="find ${c}"><b>${esc(h)}</b>${esc(b)}<div>${l.map(id=>{const t=D.tasks.find(x=>x.id==id);return `<span class="chip" data-task="${esc(id)}">${esc(t.prompt.slice(0,45))} · ${T(t.wall)} · ${$$(t.cost)}</span>`}).join('')}</div></div>`).join('')+'</div>';}
+// Every threshold a Bottlenecks rule compares against (shares are fractions, times in seconds, spend in $).
+const RULES={idleShare:.4,idleMinWall:60,approvalTotal:120,toolErrCalls:8,toolErrRate:.15,errStreak:3,dupCalls:5,churnEdits:10,ctxBig:4e5,
+ thinkShare:.6,thinkMinModel:30,cacheMissUsd:.25,cacheWriteShare:.4,minSpend:1,subCostShare:.4,stops:3,outlierZ:3.5,outlierMinTasks:8,
+ trendChange:.25,trendMinTasks:10,costTopShare:.05};
+const SEV={hi:0,mid:1,info:2},SUBTIP='Independent subagents can run in parallel: ask for them in one message instead of one after another.';
+const md=s=>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>'),base=p=>String(p).split(/[\\/]/).pop(),cut=s=>s.length>40?'…'+s.slice(-39):s;
+const tn=(n,one,many)=>`${n} ${n==1?one:many}`;
+// Findings over a task list, worst first: {key, sev, title, why, fix, tasks, s, usd}; s / usd = estimated time and spend at stake.
+function findings(F){const a=A(F),out=[],tools=toolAgg(F),by=(l,f,n=6)=>[...l].sort((x,y)=>f(y)-f(x)).slice(0,n).map(t=>t.id);
+ const turns=Math.max(1,a.calls+a.sub),turn=a.model/turns,turnUsd=a.cost/turns;     // what one extra model round-trip costs on average
+ const add=(key,sev,title,why,fix,tasks=[],s=0,usd=0)=>out.push({key,sev,title,why,fix,tasks,s,usd});
+ const errs=t=>sum(Object.values(t.tool_stats),v=>v[1]),rejects=t=>sum(Object.values(t.tool_stats),v=>v[4]);
+ const idle=F.filter(t=>t.wall>RULES.idleMinWall&&t.wait_s/t.wall>RULES.idleShare);
+ if(idle.length){const s=sum(idle,t=>t.wait_s);add('idle',s/a.wall>.15?'hi':'mid',`${tn(idle.length,'task was','tasks were')} mostly idle (over ${P(RULES.idleShare)} of the time with no model or tool activity)`,
+  `${T(s)} idle. That is time spent waiting on something the transcript doesn't record: you reading or away, a background job, or slow hooks and startup.`,
+  'Answer the agent\'s questions in one go and wrap up a step before stepping away. If hooks are slow, time them with `claude --debug`.',by(idle,t=>t.wait_s),s)}
+ const ap=sum(F,t=>t.approval_s);
+ if(ap>=RULES.approvalTotal){const l=F.filter(t=>t.approval_s>0);add('approval',ap/a.wall>.05?'hi':'mid',`Permission prompts held up ${T(ap)} of work`,
+  `Read, Edit, Write, Glob and Grep return in under a second, yet in ${tn(l.length,'task','tasks')} such calls sat for over 5 s: the agent was waiting for your approval.`,
+  'Pre-approve routine tools with `permissions.allow` rules (e.g. `"Edit"`, `"Read"`) in `.claude/settings.json`, or let edits through automatically with Shift+Tab (accept edits).',by(l,t=>t.approval_s),ap)}
+ const bad=tools.filter(r=>r[1]>=RULES.toolErrCalls&&r[2]/r[1]>RULES.toolErrRate).sort((x,y)=>y[2]/y[1]-x[2]/x[1]),badN=new Set(bad.map(r=>r[0]));
+ if(bad.length){const n=sum(bad,r=>r[2]),hits=t=>sum(Object.entries(t.tool_stats),([k,v])=>badN.has(k)?v[1]:0);
+  add('tool-errors','hi','Tools with high failure rates',bad.slice(0,5).map(r=>`${r[0]}: ${r[2]}/${r[1]} failed (${P(r[2]/r[1])})`).join(' · ')+`. Each failure costs another model round-trip${turn>=1?` (≈${T(turn)}, ${$$(turnUsd)} on average)`:''}.`,
+  'Open the worst tasks and read the failing calls: wrong paths, missing tools or flaky commands. Put the right command in `CLAUDE.md` so the agent stops guessing.',by(F.filter(hits),hits),n*turn,n*turnUsd)}
+ const st=F.filter(t=>t.err_streak>=RULES.errStreak);
+ if(st.length){const n=sum(st,t=>t.err_streak);add('streaks','mid',`${tn(st.length,'task','tasks')} got stuck retrying: ${RULES.errStreak}+ tool failures in a row`,`Longest run: ${Math.max(...st.map(t=>t.err_streak))} consecutive failed calls.`,
+  'Interrupt (Esc) once the same step fails twice and give the missing hint, or write the working approach into `CLAUDE.md`.',by(st,t=>t.err_streak),n*turn,n*turnUsd)}
+ const dp=sum(F,t=>t.dup_calls);
+ if(dp>=RULES.dupCalls){const l=F.filter(t=>t.dup_calls),ex=l.flatMap(t=>t.dups).sort((x,y)=>y[2]-x[2]).slice(0,3);
+  add('repeats','mid',`${dp} repeated identical reads and searches`,`A Read, Grep or Glob ran again with exactly the same input${ex.length?', e.g. '+ex.map(d=>`${d[0]}${d[1]?' '+cut(d[1]):''} ×${d[2]}`).join(', '):''}. Usually the agent lost track after a compaction or a long detour.`,
+  'Point the agent at the key files up front (or list them in `CLAUDE.md`), and split long tasks so the context stays small.',by(l,t=>t.dup_calls),dp*turn,dp*turnUsd)}
+ const ch=F.filter(t=>t.churn.some(c=>c[1]>=RULES.churnEdits));
+ if(ch.length){const ex=ch.flatMap(t=>t.churn).sort((x,y)=>y[1]-x[1]).slice(0,3),n=sum(ch,t=>sum(t.churn,c=>Math.max(0,c[1]-RULES.churnEdits)));   // edits past the threshold, each ≈ one turn
+  add('churn','mid',`${tn(ch.length,'task','tasks')} edited the same file ${RULES.churnEdits}+ times`,`Most edited: ${ex.map(c=>`${c[0]?base(c[0]):'(file)'} ×${c[1]}`).join(', ')}. Many edits to one file usually mean rework or trial and error.`,
+  'Agree on the approach before editing (plan mode: Shift+Tab twice), or give a precise spec: expected behaviour, constraints, and the test that must pass.',by(ch,t=>Math.max(...t.churn.map(c=>c[1]))),n*turn,n*turnUsd)}
+ const big=F.filter(t=>t.ctx_max>RULES.ctxBig);
+ if(big.length){const c=sum(big,t=>t.cost),cr=sum(big,t=>t.cost_mix[2]),cmp=big.flatMap(t=>t.compacts).filter(x=>x[2]);
+  add('context','hi',`${tn(big.length,'task','tasks')} grew context past ${N(RULES.ctxBig)} tokens`,`Every turn re-reads the whole context: these tasks cost ${$$(c)} (${P(c/a.cost)} of spend), ${$$(cr)} of it cache reads.`+
+  (cmp.length?` Their ${tn(cmp.length,'compaction','compactions')} shrank context from ${N(sum(cmp,x=>x[2])/cmp.length)} to ${N(sum(cmp,x=>x[3])/cmp.length)} tokens on average.`:''),
+  'Start a fresh session (`/clear`) between unrelated tasks, and run `/compact` with a focus hint before context passes ~200k.',by(big,t=>t.ctx_max),0,cr/2)}
+ const cm=F.filter(t=>t.cache_miss[0]),cmu=sum(cm,t=>t.cache_miss[2]);
+ if(cmu>=RULES.cacheMissUsd)add('cache-expiry','mid',`The prompt cache expired mid-task ${sum(cm,t=>t.cache_miss[0])} times (${$$(cmu)} re-spent)`,
+  `After a pause of over 5 minutes the cache is gone, so the next turn writes the whole context again: ${N(sum(cm,t=>t.cache_miss[1]))} tokens re-written.`,
+  'Finish a step before taking a break, or `/clear` and restate the goal when you come back: a small fresh context is cheaper than re-caching a large one.',by(cm,t=>t.cache_miss[2]),0,cmu)
+ const cw=sum(F,t=>t.cost_mix[3]);
+ if(a.cost>=RULES.minSpend&&cw/a.cost>RULES.cacheWriteShare)add('cache-writes','mid',`Cache writes are ${P(cw/a.cost)} of spend`,
+  'A cache write costs 1.25–2× normal input, a cache read 0.1×. A high write share means context is re-cached often: many new sessions, model switches or expired caches.',
+  'Keep always-loaded context lean (`CLAUDE.md`, MCP servers you rarely use) and stay in one session for related work instead of restarting.',by(F,t=>t.cost_mix[3]))
+ const sp=t=>t.interrupts+rejects(t),stops=sum(F,sp);
+ if(stops>=RULES.stops){const ni=sum(F,t=>t.interrupts);add('stops','mid',`You stopped or rejected the agent ${stops} times`,
+  `${tn(ni,'interrupt','interrupts')} and ${tn(stops-ni,'rejected tool call','rejected tool calls')} across ${tn(F.filter(sp).length,'task','tasks')}. Each one usually means the agent was heading the wrong way.`,
+  'For bigger changes start in plan mode (Shift+Tab twice) and approve the plan first; state constraints (files to leave alone, preferred approach) in the prompt.',by(F,sp))}
+ const th=F.filter(t=>t.model_s>RULES.thinkMinModel&&t.think_s/t.model_s>RULES.thinkShare);
+ if(th.length)add('thinking','info',`${tn(th.length,'task','tasks')} spent over ${P(RULES.thinkShare)} of model time thinking`,`${T(sum(th,t=>t.think_s))} of thinking in total.`,
+  'For routine work lower the effort level (`/effort`), or make the prompt more specific so there is less to figure out.',by(th,t=>t.think_s),sum(th,t=>t.think_s-RULES.thinkShare*t.model_s))
+ const byP=Object.create(null);F.forEach(t=>(byP[t.proj]=byP[t.proj]||[]).push(t));
+ // robust z-score (median / MAD) of sqrt(turns) within each project; sqrt tames the long tail turn counts always have
+ const odd=Object.values(byP).filter(l=>l.length>=RULES.outlierMinTasks).flatMap(l=>{const v=l.map(t=>Math.sqrt(t.calls)),med=Q(v,.5),mad=Q(v.map(x=>Math.abs(x-med)),.5)||1;
+  return l.filter((t,i)=>.6745*(v[i]-med)/mad>RULES.outlierZ).map(t=>[t,Q(l.map(t=>t.calls),.5)])}).sort((x,y)=>y[0].calls-x[0].calls);
+ if(odd.length)add('outliers','info',`${tn(odd.length,'task','tasks')} took far more turns than usual for the project`,`e.g. ${odd.slice(0,3).map(([t,m])=>`${t.calls} turns vs a median of ${m} in ${t.proj}`).join('; ')}.`,
+  'Long tails are usually exploration loops or scope creep: split big asks into smaller prompts and give the agent a way to check its work (a test or a command).',odd.slice(0,6).map(([t])=>t.id))
+ else{const m=[...F].sort((x,y)=>y.calls-x.calls);add('turns','info',`Most turns for a single task: ${m[0].calls}`,`The median task takes ${Q(F.map(t=>t.calls),.5)} turns, p90 ${Q(F.map(t=>t.calls),.9)}.`,'',m.slice(0,6).map(t=>t.id))}
+ const sc=sum(F,t=>t.sub_cost);
+ if(a.cost>=RULES.minSpend&&sc/a.cost>RULES.subCostShare)add('subagents','info',`Subagents account for ${P(sc/a.cost)} of spend`,`${$$(sc)} over ${N(a.sub)} subagent turns; each subagent builds its own context from scratch.`,
+  'Give subagents a tight brief, and set a cheaper model for search-style agents (`model: haiku` in the agent definition).',by(F,t=>t.sub_cost))
+ if(F.length>=RULES.trendMinTasks&&new Set(F.map(t=>date(t.start))).size>1){const s=[...F].sort((x,y)=>x.start-y.start),h=s.length>>1,p=s.slice(0,h),q=s.slice(h);
+  const ms=[['cost per task',l=>sum(l,t=>t.cost)/l.length,$$],['turns per task',l=>sum(l,t=>t.calls)/l.length,x=>x.toFixed(1)],
+   ['idle share',l=>sum(l,t=>t.wait_s)/Math.max(1,sum(l,t=>t.wall)),P],['tool error rate',l=>sum(l,errs)/Math.max(1,sum(l,t=>t.tools)),P]];   // higher is worse for all
+  const moved=ms.map(([k,f,fmt])=>[k,f(p),f(q),fmt]).filter(([,x,y])=>x>0&&Math.abs(y/x-1)>=RULES.trendChange),worse=moved.filter(([,x,y])=>y>x);
+  if(moved.length)add('trend',worse.length?'mid':'info',`${worse.length?'Trend':'Improving'}: ${moved.map(([k,x,y])=>`${k} ${y>x?'+':''}${P(y/x-1)}`).join(', ')}`,
+   `The earlier ${p.length} tasks (${date(p[0].start)} – ${date(p.at(-1).start)}) vs the later ${q.length} (${date(q[0].start)} – ${date(q.at(-1).start)}): `+moved.map(([k,x,y,fmt])=>`${k} ${fmt(x)} → ${fmt(y)}`).join(', ')+'.',
+   worse.length?'Open the most recent tasks and look for what changed: a new project, model, workflow or `CLAUDE.md`.':'',by(q,t=>t.cost))}
+ const tr=[...tools].sort((x,y)=>y[3]-x[3]),tt=sum(tools,r=>r[3]);
+ if(tr.length&&tt>0){const r=tr[0];add('slow-tool','info',`Slowest tool: ${r[0]}, ${T(r[3])} in total (${P(r[3]/tt)} of summed tool-call time)`,
+  `Avg ${(r[3]/Math.max(1,r[6])).toFixed(1)}s over ${r[6]} calls, max ${T(r[4])}.`+(tr.length>1?` Next: ${tr.slice(1,4).map(r=>r[0]+' '+T(r[3])).join(', ')}.`:''),
+  {Bash:'Long Bash calls are usually builds and test runs: run the narrowest target, or run long jobs in the background.',Task:SUBTIP,Agent:SUBTIP}[r[0]]||'See the slowest individual calls on the Tools tab.',
+  by(F.filter(t=>t.tool_stats[r[0]]),t=>t.tool_stats[r[0]][2]))}
+ if(a.cost>0){const s=[...F].sort((x,y)=>y.cost-x.cost),k=Math.max(1,Math.ceil(F.length*RULES.costTopShare)),c=sum(s.slice(0,k),t=>t.cost);
+  add('cost-top','info',`Cost is concentrated: the top ${tn(k,'task','tasks')} (${P(RULES.costTopShare)}) = ${P(c/a.cost)} of spend`,`${$$(c)} of ${$$(a.cost)}.`,
+  'Open them to see what made them expensive: context size, number of turns or the model.',s.slice(0,6).map(t=>t.id))}
+ const est=F.filter(t=>t.est);
+ if(est.length)add('pricing','info',`${tn(est.length,'task uses','tasks use')} models with no known price`,'Those calls are counted at $0, so spend is understated.','Pass their rates with `--pricing prices.json`.',by(est,t=>t.calls))
+ add('longest','info','Longest tasks by wall time','','',by(F,t=>t.wall));
+ const score=f=>f.s/Math.max(1,a.wall)+f.usd/Math.max(.01,a.cost);
+ return out.sort((x,y)=>SEV[x.sev]-SEV[y.sev]||score(y)-score(x))}
+const chip=id=>{const t=D.tasks.find(x=>x.id==id);return t?`<span class="chip" data-task="${esc(id)}">${esc(t.prompt.slice(0,45))} · ${T(t.wall)} · ${$$(t.cost)}</span>`:''};
+const totBar=a=>bar({wall:a.wall,model_s:a.model,tool_s:a.tool,agent_s:a.agent,user_s:a.user,wait_s:a.wait});
+function bottlenecks(){const a=A(F),fs=findings(F),act=fs.filter(f=>f.sev!='info').length;
+ const cats=[['model',a.model],['tools',a.tool],['subagent waits',a.agent],['your input (questions, plan approval)',a.user],['idle',a.wait]].sort((x,y)=>y[1]-x[1]);
+ const stake=f=>[f.s>=1?T(f.s):'',f.usd>=.01?$$(f.usd):''].filter(Boolean).join(' · ');
+ return `<div class="card"><h2>Where the time goes</h2>${totBar(a)}<div style="height:8px"></div>${legend}<div class="s" style="margin-top:6px">Biggest sink: <b>${cats[0][0]}</b> ${P(cats[0][1]/a.wall)} of wall time · ${cats.slice(1).map(c=>c[0]+' '+P(c[1]/a.wall)).join(' · ')}</div></div>
+ <div class="card"><h2>Automatic findings <span class="s">· worst first · ${act?tn(act,'finding','findings')+' to act on':'nothing urgent'}</span></h2>`+fs.map(f=>`<div class="find ${f.sev}" id="f-${f.key}"><div class="fh"><b>${md(f.title)}</b>${stake(f)?`<span class="imp" title="estimated time / spend at stake">≈ ${stake(f)}</span>`:''}</div>`+
+ (f.why?`<div>${md(f.why)}</div>`:'')+(f.fix?`<div class="fix"><b>Fix:</b> ${md(f.fix)}</div>`:'')+`<div>${f.tasks.map(chip).join('')}</div></div>`).join('')+'</div>'}
 
 function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
+ const sig=[t.approval_s?`approval waits ${T(t.approval_s)}`:'',t.cache_miss[0]?`cache expired ${t.cache_miss[0]}× (${$$(t.cache_miss[2])} re-written)`:'',t.dup_calls?`${t.dup_calls} repeated reads/searches`:'',
+  t.churn.length?`most edited: ${t.churn.map(c=>(c[0]?base(c[0]):'file')+' ×'+c[1]).join(', ')}`:'',t.err_streak>1?`${t.err_streak} tool failures in a row`:'',t.interrupts?tn(t.interrupts,'interrupt','interrupts'):''].filter(Boolean);
  const lanes=['model','tools','subagent'].map((n,i)=>`<div class="lane"><label>${n}</label>`+t.segs.filter(s=>i==0?s[0]=='m':i==1?(s[0]=='t'||s[0]=='te'):(s[0]=='ms'||s[0]=='ts')).map(s=>{
   const col=s[0]=='te'?'e':(s[0]=='m'||s[0]=='ms')?'m':s[0]=='ts'?'a':'t',extra=s[0][0]=='m'?`${esc(sn(s[3]))} · ${esc(s[5])} out tok · think ${T(s[4])}`:esc(s[3]+': '+s[4]);
   const th=s[0][0]=='m'&&s[4]>0?`<span class="th" style="left:${pc(s[1])};width:${pc(Math.min(s[4],s[2]))}" title="thinking ${T(s[4])}"></span>`:'';
@@ -145,6 +226,7 @@ function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
  const trows=Object.entries(t.tool_stats).map(([k,v])=>[k,...v]);
  return `<h2 style="font-size:16px">${esc(t.title||'Task')} <span class="s">· ${esc(t.proj)} · ${new Date(t.start*1000).toLocaleString()} · ${esc(t.id)}</span></h2><div class="pre">${esc(t.prompt)}</div>
  <div class="grid" style="margin:12px 0">${kpi('Wall',T(w))}${kpi('Turns',t.calls,t.sub_calls+' subagent calls')}${kpi('Tool calls',t.tools)}${kpi('Thinking',T(t.think_s),N(t.think_tok)+' tok')}${kpi('Cost',$$(t.cost)+(t.est?'*':''),'subagents '+$$(t.sub_cost))}${kpi('Peak context',N(t.ctx_max),t.compacts.length+' compactions')}</div>
+ ${sig.length?`<div class="s" style="margin:-4px 0 10px">Signals: ${esc(sig.join(' · '))}</div>`:''}
  ${bar(t)}<div style="height:6px"></div>${legend}<h2 style="margin-top:14px">Timeline <span class="s">(purple = thinking portion of a model call, red = failed tool)</span></h2><div class="gantt">${lanes}</div><div class="axis">${[0,.25,.5,.75,1].map(f=>`<span>${T(w*f)}</span>`).join('')}</div>
  <div class="cols" style="margin-top:14px"><div><h2>Tools in this task</h2>${tbl('dt',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>esc(r[1]),v:r=>r[1]},{h:'Err',n:1,f:r=>esc(r[2]),v:r=>r[2]},{h:'Total',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]}],trows,20)}</div>
  <div><h2>Tool calls, slowest first</h2>${tbl('ds',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Dur',n:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr" style="max-width:300px">${esc(r[2])}</div>`,v:r=>r[2]}],t.slow,10)}

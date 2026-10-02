@@ -14,6 +14,8 @@ def redact(d):
         t['id'] = f"{t['sid']}#{t['id'].rsplit('#', 1)[1]}"
         t['prompt'] = f"Task {t['id']}"; t['title'] = ''
         t['slow'] = [[tool(n), dur, '', e] for n, dur, _, e in t['slow']]
+        t['dups'] = [[tool(n), '', k] for n, _, k in t['dups']]
+        t['churn'] = [['', k] for _, k in t['churn']]               # file paths
         t['tool_stats'] = {tool(k): v for k, v in t['tool_stats'].items()}
         for sg in t['segs']:
             if sg[0] not in ('m', 'ms'):
