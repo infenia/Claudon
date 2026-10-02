@@ -2,11 +2,13 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Claudon</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--fg:#1c2330;--mute:#6b7585;--line:#e3e6ec;--model:#3b82f6;--think:#8b5cf6;--tool:#f59e0b;--agent:#14b8a6;--user:#ec4899;--wait:#cbd2dc;--err:#ef4444;--ok:#10b981}
-@media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--fg:#e6e9ef;--mute:#8d97a8;--line:#272d3a;--wait:#3a4252}}
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1c2330;--mute:#6b7585;--line:#e3e6ec;--model:#3b82f6;--think:#8b5cf6;--tool:#f59e0b;--agent:#14b8a6;--user:#ec4899;--wait:#cbd2dc;--err:#ef4444;--ok:#10b981;
+ --shadow:0 1px 2px rgba(16,24,40,.04),0 2px 6px -2px rgba(16,24,40,.06);--hover:rgba(59,130,246,.05)}
+@media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--fg:#e6e9ef;--mute:#8d97a8;--line:#272d3a;--wait:#3a4252;--shadow:0 1px 2px rgba(0,0,0,.3);--hover:rgba(59,130,246,.08)}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11","tnum"}
-header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-h1{font-size:16px;margin:0 8px 0 0}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);box-shadow:0 6px 18px -14px rgba(16,24,40,.35);padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+h1{font-size:16px;margin:0 8px 0 0;display:flex;align-items:center;gap:8px;letter-spacing:-.01em}
+h1::before{content:'';width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,var(--model),var(--think));box-shadow:inset 0 0 0 5px rgba(255,255,255,.28)}
 nav{display:inline-flex;background:var(--bg);padding:3px;border-radius:8px;border:1px solid var(--line);gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}
 nav button{white-space:nowrap;font:inherit;font-size:13px;font-weight:500;color:var(--mute);background:transparent;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all .15s ease}
 nav button:hover{color:var(--fg);background:rgba(0,0,0,.04)}
@@ -16,20 +18,27 @@ nav button:focus-visible,select:focus-visible,input:focus-visible{outline:2px so
 select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 11px;transition:border-color .15s ease}
 select:hover,input:hover{border-color:var(--mute)}
 main{padding:20px;max-width:1500px;margin:auto}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
-.grid .card{margin:0}.k{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}.v{font-size:24px;font-weight:600}.s{color:var(--mute);font-size:12px}
-h2{font-size:14px;margin:0 0 10px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px;overflow-x:auto;box-shadow:var(--shadow)}
+.grid .card{margin:0}.kpi{position:relative;padding:10px 12px 10px 14px;overflow:hidden}.kpi::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--c,var(--line))}
+.k{color:var(--mute);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v{font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.3;margin-top:2px;white-space:nowrap}.s{color:var(--mute);font-size:12px}
+.kpi .s{font-size:11px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+h2{font-size:14px;margin:0 0 12px;letter-spacing:-.005em}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px}
 table{border-collapse:collapse;width:100%}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 th{color:var(--mute);font-weight:500;font-size:12px;cursor:pointer;white-space:nowrap;user-select:none}th:hover{color:var(--fg)}
-td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer}tr.c:hover{background:var(--bg)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer}tr:hover>td{background:var(--hover)}tr:last-child>td{border-bottom:0}
 .pr{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--wait);min-width:110px}.bar i{display:block}
 .m{background:var(--model)}.th{background:var(--think)}.t{background:var(--tool)}.a{background:var(--agent)}.u{background:var(--user)}.w{background:var(--wait)}.e{background:var(--err)}
 .leg span{margin-right:14px;font-size:12px;color:var(--mute)}.leg b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-.hb{height:8px;background:var(--model);border-radius:4px;min-width:1px}
-.days{display:flex;align-items:flex-end;gap:2px;height:110px}.days div{flex:1;background:var(--model);min-width:2px;border-radius:2px 2px 0 0}
-.find{border-left:4px solid var(--tool);padding:8px 12px;margin:10px 0;background:var(--bg);border-radius:0 6px 6px 0}.find.hi{border-color:var(--err)}.find.info{border-color:var(--model)}
+.hb{height:8px;background:var(--model);border-radius:4px;min-width:1px}.hb.t{background:var(--tool)}.trk{width:140px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.days{display:flex;align-items:flex-end;gap:2px;height:180px;border-bottom:1px solid var(--line)}.days div{flex:1;background:var(--model);opacity:.8;min-width:2px;border-radius:3px 3px 0 0;transition:opacity .12s}.days div:hover{opacity:1}
+.mix{display:grid;grid-template-columns:90px 1fr auto;gap:8px 12px;align-items:center}.mix .hb{height:10px;border-radius:5px}.mix .s{text-align:right;white-space:nowrap}
+.find{border:1px solid var(--line);border-left:4px solid var(--tool);padding:10px 14px;margin:10px 0;background:var(--card);border-radius:10px}.find.hi{border-left-color:var(--err)}.find.info{border-left-color:var(--model)}
+.sev{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:1px 7px;margin-right:8px;vertical-align:1px;color:#b45309;background:rgba(245,158,11,.14)}
+.sev.hi{color:#dc2626;background:rgba(239,68,68,.12)}.sev.info{color:#2563eb;background:rgba(59,130,246,.12)}
+@media(prefers-color-scheme:dark){.sev{color:#fbbf24}.sev.hi{color:#f87171}.sev.info{color:#60a5fa}}
 .find .fh{display:flex;gap:12px;align-items:baseline;margin-bottom:2px}.find .fh b{flex:1}.imp{color:var(--mute);font-size:12px;white-space:nowrap}.fix{margin-top:4px}.find.flash{animation:flash 1.8s}@keyframes flash{0%,50%{outline:2px solid var(--model)}100%{outline:2px solid transparent}}
 /* on-device AI: one gradient built from the model / thinking / user colours, used sparingly so the data stays the focus */
 :root{--bubble:#fff;--ai:linear-gradient(135deg,var(--model),var(--think) 55%,var(--user));--ai-glow:rgba(139,92,246,.35);--ai-tint:linear-gradient(135deg,rgba(59,130,246,.07),rgba(139,92,246,.07) 55%,rgba(236,72,153,.05))}
@@ -105,8 +114,9 @@ nav button.ait svg{width:12px;height:12px;fill:var(--think);margin-right:5px;ver
  white-space:normal;text-align:left;font-size:12px;font-weight:400;line-height:1.45;letter-spacing:0;color:var(--card);background:var(--fg);padding:7px 10px;border-radius:8px;box-shadow:0 10px 28px -10px rgba(0,0,0,.45);pointer-events:none}
 [data-tip].tip-r::after{left:auto;right:0;transform:none}[data-tip].tip-up::after{top:auto;bottom:calc(100% + 8px)}
 .dotted{border-bottom:1px dotted var(--mute);cursor:help}
-.chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
-#modal{position:fixed;inset:0;background:#0008;display:none;z-index:10;overflow:auto;padding:30px}#modal>div{background:var(--card);max-width:1200px;margin:auto;border-radius:12px;padding:20px;position:relative}
+.chip{display:inline-block;margin:6px 6px 0 0;padding:2px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;cursor:pointer;background:var(--bg);transition:border-color .12s,color .12s}.chip:hover{border-color:var(--model);color:var(--model)}
+#modal{position:fixed;inset:0;background:rgba(10,14,22,.55);backdrop-filter:blur(3px);display:none;z-index:10;overflow:auto;padding:30px}
+#modal>div{background:var(--card);max-width:1200px;margin:auto;border-radius:16px;padding:22px 24px;position:relative;box-shadow:0 30px 80px -24px rgba(0,0,0,.5)}
 #x{position:absolute;right:14px;top:10px;cursor:pointer;font-size:22px;line-height:1;color:var(--mute);background:none;border:0;padding:4px 8px;border-radius:6px}#x:hover{background:var(--bg);color:var(--text,inherit)}
 .gantt{position:relative;border:1px solid var(--line);border-radius:6px;margin:8px 0 4px;background:var(--bg)}.lane{position:relative;height:24px;border-bottom:1px dashed var(--line)}
 .lane:last-child{border:0}.lane span{position:absolute;top:3px;height:18px;border-radius:3px;min-width:2px;opacity:.9}.lane label{position:absolute;left:4px;top:4px;font-size:11px;color:var(--mute);z-index:1;pointer-events:none}
@@ -163,7 +173,7 @@ function tbl(id,cols,rows,limit=200,click){
  return `<table><tr>${cols.map((c,i)=>`<th class="${c.n?'n':''}" data-s="${id}|${i}">${c.h}${s.i==i?(s.d<0?' ▾':' ▴'):''}</th>`).join('')}</tr>`+
  rows.slice(0,n).map(r=>`<tr class="${click?'c':''}" ${click?`data-task="${esc(click(r))}"`:''}>${cols.map(c=>`<td class="${c.n?'n':''}">${c.f(r)}</td>`).join('')}</tr>`).join('')+'</table>'+
  (rows.length>n?`<div class="more s">showing ${n} of ${rows.length}<button data-more="${id}|${limit}">show ${Math.min(limit,rows.length-n)} more</button><button data-more="${id}|all">show all</button></div>`:'')}
-const kpi=(k,v,s='')=>`<div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}</div></div>`;
+const kpi=(k,v,s='',c='')=>`<div class="card kpi"${c?` style="--c:var(--${c})"`:''} title="${esc(k)}: ${esc(v)}${s?' · '+esc(s):''}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}</div></div>`;
 const A=a=>({wall:sum(a,t=>t.wall),model:sum(a,t=>t.model_s),tool:sum(a,t=>t.tool_s),agent:sum(a,t=>t.agent_s),user:sum(a,t=>t.user_s),wait:sum(a,t=>t.wait_s),
  calls:sum(a,t=>t.calls),sub:sum(a,t=>t.sub_calls),tools:sum(a,t=>t.tools),cost:sum(a,t=>t.cost),think:sum(a,t=>t.think_s),thinkTok:sum(a,t=>t.think_tok),
  out:sum(a,t=>t.out_tok),inp:sum(a,t=>t.in_tok),cr:sum(a,t=>t.cr_tok),cc:sum(a,t=>t.cc_tok)});
@@ -174,18 +184,19 @@ function overview(){const a=A(F),sess=new Set(F.map(t=>t.sid)).size,cacheHit=a.c
  const days={};F.forEach(t=>days[date(t.start)]=(days[date(t.start)]||0)+t.cost);const dk=Object.keys(days).sort(),mx=Math.max(...Object.values(days),.01);
  const dist=(h,f,fmt)=>`<tr><td>${h}</td><td class="n">${fmt(Q(F.map(f),.5))}</td><td class="n">${fmt(Q(F.map(f),.9))}</td><td class="n">${fmt(Q(F.map(f),1))}</td></tr>`;
  const byP=Object.create(null);F.forEach(t=>(byP[t.proj]=byP[t.proj]||[]).push(t));
- return `<div class="grid">${kpi('Tasks',F.length,sess+' sessions')}${kpi('API turns',N(a.calls),N(a.sub)+' by subagents')}${kpi('Tool calls',N(a.tools))}
- ${kpi('Wall time',T(a.wall),'sum over tasks')}${kpi('Model time',T(a.model),P(a.model/a.wall)+' of wall')}${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time')}
- ${kpi('Est. cost',$$(a.cost),$$(a.cost/F.length)+' / task')}${kpi('Output tokens',N(a.out),'thinking '+N(a.thinkTok)+' (where reported)')}${kpi('Cache hit',P(cacheHit),'of input-side tokens')}</div>
+ return `<div class="grid">${kpi('Tasks',F.length.toLocaleString(),sess+' sessions','mute')}${kpi('API turns',N(a.calls),N(a.sub)+' by subagents','model')}${kpi('Tool calls',N(a.tools),'','tool')}
+ ${kpi('Wall time',T(a.wall),'sum over tasks','mute')}${kpi('Model time',T(a.model),P(a.model/a.wall)+' of wall','model')}${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time','think')}
+ ${kpi('Est. cost',$$(a.cost),$$(a.cost/F.length)+' / task','ok')}${kpi('Output tokens',N(a.out),'thinking '+N(a.thinkTok)+' (where reported)','model')}${kpi('Cache hit',P(cacheHit),'of input-side tokens','agent')}</div>
  ${aiCard()}<div class="card"><h2>Where the wall-clock time goes</h2>${totBar(a)}<div style="height:8px"></div>${legend}
  <div class="s" style="margin-top:6px">model ${T(a.model)} (${P(a.model/a.wall)}) · tools ${T(a.tool)} (${P(a.tool/a.wall)}) · subagent wait ${T(a.agent)} · user prompts ${T(a.user)} · idle ${T(a.wait)} (${P(a.wait/a.wall)})</div></div>
  <div class="cols"><div class="card"><h2>Per-task distribution</h2><table><tr><th></th><th class="n">median</th><th class="n">p90</th><th class="n">max</th></tr>
  ${dist('API turns',t=>t.calls,N)}${dist('Tool calls',t=>t.tools,N)}${dist('Wall time',t=>t.wall,T)}${dist('Thinking time',t=>t.think_s,T)}${dist('Cost',t=>t.cost,$$)}${dist('Peak context',t=>t.ctx_max,N)}</table></div>
- <div class="card"><h2>Cost per day</h2><div class="days">${dk.map(d=>`<div title="${d}: ${$$(days[d])}" style="height:${days[d]/mx*100}%"></div>`).join('')}</div><div class="axis"><span>${dk[0]}</span><span>${dk.at(-1)}</span></div></div></div>
+ <div class="card"><h2>Cost per day <span class="s">· peak ${$$(mx)} on ${esc(dk.find(d=>days[d]==mx)||'')}</span></h2><div class="days">${dk.map(d=>`<div title="${d}: ${$$(days[d])}" style="height:${days[d]/mx*100}%"></div>`).join('')}</div><div class="axis"><span>${dk[0]}</span><span>${dk.at(-1)}</span></div></div></div>
  <div class="cols"><div class="card"><h2>Cost by project</h2>${tbl('proj',[{h:'Project',f:r=>esc(r[0]),v:r=>r[0]},{h:'Tasks',n:1,f:r=>r[1],v:r=>r[1]},{h:'Wall',n:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Cost',n:1,d:1,f:r=>$$(r[2]),v:r=>r[2]}],Object.entries(byP).map(([k,v])=>[k,v.length,sum(v,t=>t.cost),sum(v,t=>t.wall)]),15)}</div>
  <div class="card"><h2>Token cost mix</h2>${costMix()}</div></div>`}
 function costMix(){const r=[0,1,2,3].map(i=>sum(F,t=>t.cost_mix[i])),tot=sum(r,x=>x)||1;  // [fresh in, out, cache read, cache write] $
- return [['Output',r[1]],['Cache read',r[2]],['Cache write',r[3]],['Fresh input',r[0]]].map(([k,v])=>`<div style="display:flex;gap:10px;align-items:center;margin:6px 0"><span style="width:90px">${k}</span><div class="hb" style="width:${v/tot*60}%"></div><span class="s">${P(v/tot)}</span></div>`).join('')}
+ return '<div class="mix">'+[['Output',r[1],'model'],['Cache read',r[2],'agent'],['Cache write',r[3],'tool'],['Fresh input',r[0],'think']].map(([k,v,c])=>
+  `<span>${k}</span><div class="hb" style="width:${Math.max(.5,v/tot*100)}%;background:var(--${c})"></div><span class="s">${$$(v)} · ${P(v/tot)}</span>`).join('')+'</div>'}
 
 function tasksView(){return `<div class="card">${legend}<div style="height:8px"></div>`+tbl('tasks',[
  {h:'Date',f:t=>date(t.start),v:t=>t.start,d:1},{h:'Project',f:t=>esc(t.proj),v:t=>t.proj},{h:'Task',f:t=>`<div class="pr" title="${esc(t.prompt)}">${esc(t.prompt)}</div>`,v:t=>t.prompt},
@@ -196,7 +207,7 @@ function tasksView(){return `<div class="card">${legend}<div style="height:8px">
 function toolsView(){const rows=toolAgg(F),tot=sum(rows,r=>r[3])||1,mx=Math.max(...rows.map(r=>r[3]),1);
  const slow=F.flatMap(t=>t.slow.map(s=>[...s,t])).sort((a,b)=>b[1]-a[1]);
  return `<div class="card"><h2>Tools by total time</h2>`+tbl('tools',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>N(r[1]),v:r=>r[1]},{h:'Errors',n:1,f:r=>r[2]?`${r[2]} <span class="s">(${P(r[2]/r[1])})</span>`:'–',v:r=>r[2]/r[1]},
- {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="hb t" style="width:${r[3]/mx*100}%"></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/Math.max(1,r[6])).toFixed(1)+'s',v:r=>r[3]/Math.max(1,r[6])},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'<span class="tip" title="calls the user rejected or interrupted; not counted as errors">Rejected</span>',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
+ {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="trk"><div class="hb t" style="width:${r[3]/mx*100}%"></div></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/Math.max(1,r[6])).toFixed(1)+'s',v:r=>r[3]/Math.max(1,r[6])},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'<span class="tip" title="calls the user rejected or interrupted; not counted as errors">Rejected</span>',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
  `<div class="s">Tool duration = tool_use → tool_result timestamps, so it includes time spent waiting on permission prompts. Subagent (Task/Agent) calls are counted here but painted separately in the time split.</div></div>
  <div class="card"><h2>Slowest individual calls</h2>`+tbl('slow',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Duration',n:1,d:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr">${esc(r[2])}</div>`,v:r=>r[2]},{h:'Err',f:r=>r[3]?'✗':'',v:r=>r[3]},{h:'Task',f:r=>`<span class="chip" data-task="${esc(r[4].id)}">${esc(r[4].prompt.slice(0,50))}</span>`,v:r=>r[4].prompt}],slow,25)+'</div>'}
 
@@ -204,8 +215,8 @@ function modelsView(){const rows=modelAgg(F),a=A(F);
  return `<div class="card"><h2>Models</h2>`+tbl('models',[{h:'Model',f:r=>esc(sn(r[0])),v:r=>r[0]},{h:'Calls',n:1,f:r=>N(r[1]),v:r=>r[1]},{h:'Cost',n:1,d:1,f:r=>$$(r[2]),v:r=>r[2]},{h:'Output tok',n:1,f:r=>N(r[3]),v:r=>r[3]},
  {h:'Thinking tok',n:1,f:r=>N(r[4]),v:r=>r[4]},{h:'Avg call',n:1,f:r=>(r[5]/r[1]).toFixed(1)+'s',v:r=>r[5]/r[1]},{h:'Out tok/s',n:1,f:r=>r[5]?(r[3]/r[5]).toFixed(0):'–',v:r=>r[3]/r[5]},
  {h:'Thinking time',n:1,f:r=>T(r[6]),v:r=>r[6]},{h:'Think / call time',n:1,f:r=>P(r[6]/Math.max(.1,r[5])),v:r=>r[6]/r[5]},{h:'Fresh in',n:1,f:r=>N(r[7]),v:r=>r[7]},{h:'Cache read',n:1,f:r=>N(r[8]),v:r=>r[8]},{h:'Cache write',n:1,f:r=>N(r[9]),v:r=>r[9]}],rows)+'</div>'+
- `<div class="card"><h2>Thinking</h2><div class="grid" style="margin:0">${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time')}${kpi('Thinking tokens',N(a.thinkTok),P(a.thinkTok/Math.max(1,a.out))+' of output (where reported)')}
- ${kpi('Calls with thinking',N(sum(F,t=>t.think_calls)),P(sum(F,t=>t.think_calls)/Math.max(1,a.calls+a.sub))+' of calls')}</div>
+ `<div class="card"><h2>Thinking</h2><div class="grid" style="margin:0">${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time','think')}${kpi('Thinking tokens',N(a.thinkTok),P(a.thinkTok/Math.max(1,a.out))+' of output (where reported)','think')}
+ ${kpi('Calls with thinking',N(sum(F,t=>t.think_calls)),P(sum(F,t=>t.think_calls)/Math.max(1,a.calls+a.sub))+' of calls','think')}</div>
  <div class="s" style="margin-top:8px">Thinking text is redacted in the transcripts, so thinking time is measured as the gap between a request and its thinking block being written; tokens come from <code>usage.output_tokens_details.thinking_tokens</code> when the log has it.</div>
  <h2 style="margin-top:14px">Most thinking-heavy tasks</h2>`+tbl('think',[{h:'Task',f:t=>`<div class="pr">${esc(t.prompt)}</div>`,v:t=>t.prompt},{h:'Think time',n:1,d:1,f:t=>T(t.think_s),v:t=>t.think_s},{h:'% of model time',n:1,f:t=>P(t.think_s/Math.max(1,t.model_s)),v:t=>t.think_s/Math.max(1,t.model_s)},{h:'Think tok',n:1,f:t=>N(t.think_tok),v:t=>t.think_tok},{h:'Wall',n:1,f:t=>T(t.wall),v:t=>t.wall}],F,15,t=>t.id)+'</div>'}
 
@@ -299,7 +310,7 @@ const totBar=a=>bar({wall:a.wall,model_s:a.model,tool_s:a.tool,agent_s:a.agent,u
 function bottlenecks(){const a=A(F),fs=findings(F),act=fs.filter(f=>f.sev!='info').length;
  const cats=[['model',a.model],['tools',a.tool],['subagent waits',a.agent],['your input (questions, plan approval)',a.user],['idle',a.wait]].sort((x,y)=>y[1]-x[1]);
  return `<div class="card"><h2>Where the time goes</h2>${totBar(a)}<div style="height:8px"></div>${legend}<div class="s" style="margin-top:6px">Biggest sink: <b>${cats[0][0]}</b> ${P(cats[0][1]/a.wall)} of wall time · ${cats.slice(1).map(c=>c[0]+' '+P(c[1]/a.wall)).join(' · ')}</div></div>
- <div class="card"><h2>Automatic findings <span class="s">· worst first · ${act?tn(act,'finding','findings')+' to act on':'nothing urgent'}</span></h2>`+fs.map(f=>`<div class="find ${f.sev}" id="f-${f.key}"><div class="fh"><b>${md(f.title)}</b>${stake(f)?`<span class="imp" title="estimated time / spend at stake">≈ ${stake(f)}</span>`:''}</div>`+
+ <div class="card"><h2>Automatic findings <span class="s">· worst first · ${act?tn(act,'finding','findings')+' to act on':'nothing urgent'}</span></h2>`+fs.map(f=>`<div class="find ${f.sev}" id="f-${f.key}"><div class="fh"><b><span class="sev ${f.sev}">${{hi:'High',mid:'Medium',info:'Info'}[f.sev]}</span>${md(f.title)}</b>${stake(f)?`<span class="imp" title="Estimated time and spend this finding puts at stake">≈ ${stake(f)}</span>`:''}</div>`+
  (f.why?`<div>${md(f.why)}</div>`:'')+(f.fix?`<div class="fix"><b>Fix:</b> ${md(f.fix)}</div>`:'')+`<div>${f.tasks.map(chip).join('')}</div></div>`).join('')+'</div>'}
 
 // ---- Optional on-device AI: the browser's built-in model (Prompt API, else Summarizer) ----
@@ -530,7 +541,7 @@ function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
  const ctxMax=Math.max(...t.ctx.map(c=>c[1]),1),svg=t.ctx.length>1?`<svg viewBox="0 0 400 60" width="100%" height="60" preserveAspectRatio="none"><polyline fill="none" stroke="var(--model)" stroke-width="1.5" points="${t.ctx.map(c=>`${c[0]/w*400},${58-c[1]/ctxMax*54}`).join(' ')}"/></svg>`:'';
  const trows=Object.entries(t.tool_stats).map(([k,v])=>[k,...v]);
  return `<h2 style="font-size:16px">${esc(t.title||'Task')} <span class="s">· ${esc(t.proj)} · ${new Date(t.start*1000).toLocaleString()} · ${esc(t.id)}</span></h2><div class="pre">${esc(t.prompt)}</div>
- <div class="grid" style="margin:12px 0">${kpi('Wall',T(w))}${kpi('Turns',t.calls,t.sub_calls+' subagent calls')}${kpi('Tool calls',t.tools)}${kpi('Thinking',T(t.think_s),N(t.think_tok)+' tok')}${kpi('Cost',$$(t.cost)+(t.est?'*':''),'subagents '+$$(t.sub_cost))}${kpi('Peak context',N(t.ctx_max),t.compacts.length+' compactions')}</div>
+ <div class="grid" style="margin:12px 0">${kpi('Wall',T(w),'','mute')}${kpi('Turns',t.calls,t.sub_calls+' subagent calls','model')}${kpi('Tool calls',t.tools,'','tool')}${kpi('Thinking',T(t.think_s),N(t.think_tok)+' tok','think')}${kpi('Cost',$$(t.cost)+(t.est?'*':''),'subagents '+$$(t.sub_cost),'ok')}${kpi('Peak context',N(t.ctx_max),t.compacts.length+' compactions','agent')}</div>
  ${sig.length?`<div class="s" style="margin:-4px 0 10px">Signals: ${esc(sig.join(' · '))}</div>`:''}
  ${bar(t)}<div style="height:6px"></div>${legend}<h2 style="margin-top:14px">Timeline <span class="s">(purple = thinking portion of a model call, red = failed tool)</span></h2><div class="gantt">${lanes}</div><div class="axis">${[0,.25,.5,.75,1].map(f=>`<span>${T(w*f)}</span>`).join('')}</div>
  <div class="cols" style="margin-top:14px"><div><h2>Tools in this task</h2>${tbl('dt',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>esc(r[1]),v:r=>r[1]},{h:'Err',n:1,f:r=>esc(r[2]),v:r=>r[2]},{h:'Total',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]}],trows,20)}</div>
@@ -539,7 +550,7 @@ function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
 
 const views=[overview,tasksView,toolsView,modelsView,bottlenecks];
 function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=>{const on=i==tab;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});
- $('#view').innerHTML=F.length?views[tab]():'<div class="card">No tasks match.</div>';if(F.length&&views[tab]==chatView)chatMounted()}
+ $('#view').innerHTML=F.length?views[tab]():'<div class="card" style="text-align:center;padding:40px 16px"><b>No tasks match.</b><div class="s">Clear the project filter or the search box to see everything.</div></div>';if(F.length&&views[tab]==chatView)chatMounted()}
 const pl=(n,w)=>`${N(n)} ${w}${n==1?'':'s'}`;
 const rates=Object.entries(D.price).sort(([a],[b])=>a.localeCompare(b)).map(([k,p])=>`<tr><td><code>${esc(k)}</code></td>${p.map(x=>`<td class="n">${x}</td>`).join('')}</tr>`).join('');
 $('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).toLocaleString())} from <code>${esc(D.root)}</code> · ${pl(D.files,'file')} · ${pl(D.sessions.length,'session')} · Developed by <b>Infenia Private Limited</b> under the MIT License</div>

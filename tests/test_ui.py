@@ -219,18 +219,22 @@ class TestClaudonUI(unittest.TestCase):
         # Check font sizes and text transform for .k
         k_font_size = card_label.evaluate("el => getComputedStyle(el).fontSize")
         k_transform = card_label.evaluate("el => getComputedStyle(el).textTransform")
-        self.assertEqual(k_font_size, "12px")
+        self.assertEqual(k_font_size, "11px")
         self.assertEqual(k_transform, "uppercase")
 
         # Check .v font size and font weight
         v_font_size = card_val.evaluate("el => getComputedStyle(el).fontSize")
         v_font_weight = card_val.evaluate("el => getComputedStyle(el).fontWeight")
-        self.assertEqual(v_font_size, "24px")
+        self.assertEqual(v_font_size, "20px")
         self.assertEqual(v_font_weight, "600")
 
         # Check card border and border radius
         border_radius = first_card.evaluate("el => getComputedStyle(el).borderRadius")
-        self.assertEqual(border_radius, "10px")
+        self.assertEqual(border_radius, "12px")
+
+        # compact: all nine overview KPIs share one row at a 1280px viewport
+        tops = kpi_cards.evaluate_all("els => [...new Set(els.map(e => Math.round(e.getBoundingClientRect().top)))]")
+        self.assertEqual((kpi_cards.count(), len(tops)), (9, 1))
 
     def test_time_split_bar_and_legend(self):
         """Test wall-clock time split bar colors, heights, and legend indicators."""
