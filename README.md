@@ -173,11 +173,29 @@ claudon --redact -o share-me.html               # safe to attach to an issue
 
 The report is one self-contained `.html` file: no server, no external assets.
 
+### On-device AI (optional)
+
+If your browser ships a built-in language model, the Bottlenecks tab offers an **AI summary** of the findings: a
+headline, where the time and money go, and the fixes worth doing first. The model runs inside your browser on your
+computer, so it works offline and nothing from the report is sent anywhere. Browsers without the API never show it.
+
+| Browser | What you get |
+|---|---|
+| Chrome 148+ (desktop) | Summary via the [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) |
+| Chrome 138–147, Edge | Summary via the [Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api); Edge's Prompt API is behind `edge://flags` → *Prompt API for on-device language model* |
+| Others | Any browser that adds the same standard `LanguageModel` / `Summarizer` APIs, automatically |
+
+The first use asks the browser to download its model once (a few GB; Chrome needs about 22 GB of free disk and
+either a GPU with more than 4 GB of VRAM or 16 GB of RAM). On machines that don't meet the browser's requirements the
+feature stays hidden. The numbers in the findings are always computed exactly; the AI only words and prioritises them.
+
 ---
 
 ## Privacy
 
-Everything runs on your machine. The CLI makes no network requests.
+Everything runs on your machine. The CLI makes no network requests, and neither does the report page. The optional
+AI summary uses the browser's own on-device model; if the browser still has to fetch that model, it does so itself,
+and only after you click *Enable on-device AI*.
 
 The browser version uploads nothing either: files are read and analyzed locally. Its only downloads are the Pyodide
 runtime (from jsDelivr) and `claudon.pyz`, and once it shows *Ready* it keeps working offline. Chrome and Edge ask to

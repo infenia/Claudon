@@ -183,7 +183,8 @@
       <button class="btn" style="background: #475569;" onclick="resetUI()">Analyze Other Files</button>
     </div>
 
-    <iframe id="report-frame" sandbox="allow-scripts"></iframe>
+    <!-- allow=: lets the report use the browser's on-device AI (Permissions Policy blocks it in sandboxed frames otherwise) -->
+    <iframe id="report-frame" sandbox="allow-scripts" allow="language-model; summarizer"></iframe>
   </main>
 
   <footer>
