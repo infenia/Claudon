@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="19 20 472 472" role="img" aria-label="Claudon">
+  <title>Claudon</title>
+  <defs>
+    <radialGradient id="lav" cx="256" cy="256" r="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0.822" stop-color="#a7abeb"/>
+      <stop offset="1" stop-color="#5b5fae"/>
+    </radialGradient>
+    <linearGradient id="warm" x1="60" y1="110" x2="440" y2="330" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4a1d5e"/>
+      <stop offset=".38" stop-color="#e83f6a"/>
+      <stop offset=".72" stop-color="#ff6a5b"/>
+      <stop offset="1" stop-color="#ffa552"/>
+    </linearGradient>
+    <radialGradient id="shade" cx="256" cy="256" r="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0.561" stop-color="#1b1748" stop-opacity=".45"/>
+      <stop offset="0.664" stop-color="#1b1748" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(36 0)">
+  <path d="M393.6 92.1A214 214 0 1 0 393.6 419.9L395.4 325.7L333.1 347.9A120 120 0 1 1 333.1 164.1L395.4 186.3Z" fill="#1b1748" stroke="#1b1748" stroke-width="28" stroke-linejoin="miter" stroke-miterlimit="3"/>
+  <path d="M393.6 92.1A214 214 0 1 0 393.6 419.9L394.8 357.6A172 172 0 1 1 394.8 154.4Z" fill="url(#lav)"/>
+  <path d="M394.1 119.8A194 194 0 1 0 394.1 392.2L394.2 384.9A189 189 0 1 1 394.2 127.1Z" fill="#c4c7f5" opacity=".55"/>
+  <path d="M395.0 167.2A165 165 0 1 0 395.0 344.8L395.4 325.7L333.1 347.9A120 120 0 1 1 333.1 164.1L395.4 186.3Z" fill="url(#warm)"/>
+  <path d="M395.0 167.2A165 165 0 1 0 395.0 344.8L395.4 325.7L333.1 347.9A120 120 0 1 1 333.1 164.1L395.4 186.3Z" fill="url(#shade)"/>
+  </g>
+</svg>
