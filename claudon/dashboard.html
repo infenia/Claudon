@@ -4,10 +4,17 @@
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1c2330;--mute:#6b7585;--line:#e3e6ec;--model:#3b82f6;--think:#8b5cf6;--tool:#f59e0b;--agent:#14b8a6;--user:#ec4899;--wait:#cbd2dc;--err:#ef4444;--ok:#10b981}
 @media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--fg:#e6e9ef;--mute:#8d97a8;--line:#272d3a;--wait:#3a4252}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11","tnum"}
 header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-h1{font-size:16px;margin:0 8px 0 0}nav button,select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 11px}
-nav button{cursor:pointer}nav button.on{background:var(--model);border-color:var(--model);color:#fff}
+h1{font-size:16px;margin:0 8px 0 0}
+nav{display:inline-flex;background:var(--bg);padding:3px;border-radius:8px;border:1px solid var(--line);gap:2px}
+nav button{font:inherit;font-size:13px;font-weight:500;color:var(--mute);background:transparent;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all .15s ease}
+nav button:hover{color:var(--fg);background:rgba(0,0,0,.04)}
+@media(prefers-color-scheme:dark){nav button:hover{background:rgba(255,255,255,.06)}}
+nav button.on{background:var(--model);color:#fff;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+nav button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--model);outline-offset:1px}
+select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 11px;transition:border-color .15s ease}
+select:hover,input:hover{border-color:var(--mute)}
 main{padding:20px;max-width:1500px;margin:auto}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
@@ -37,8 +44,8 @@ footer details{margin-top:14px}footer summary{cursor:pointer;color:var(--fg)}foo
 .tip{color:var(--mute);cursor:help;border-bottom:1px dotted}
 </style></head><body>
 <header><h1>Claudon</h1>
-<nav id="nav"></nav><span style="flex:1"></span>
-<select id="fp"></select><input id="fq" placeholder="search prompts…" size="22"></header>
+<nav id="nav" role="tablist" aria-label="Dashboard views"></nav><span style="flex:1"></span>
+<select id="fp" aria-label="Filter by project"></select><input id="fq" placeholder="search prompts…" size="22" aria-label="Search prompts"></header>
 <main id="view"></main><div id="modal" role="dialog" aria-modal="true"><div><button id="x" aria-label="Close (Esc)" title="Close (Esc)">×</button><div id="mbody"></div></div></div>
 <footer id="foot"></footer>
 <script id="d" type="application/json">__DATA__</script>
@@ -54,7 +61,7 @@ const Q=(a,p)=>{if(!a.length)return 0;a=[...a].sort((x,y)=>x-y);return a[Math.mi
 const date=t=>new Date(t*1000).toISOString().slice(0,10);
 const sn=m=>m.replace('claude-','').replace(/-20\d{6}$/,'');
 const tabs=['Overview','Tasks','Tools','Models & thinking','Bottlenecks'];let cur,tab=0,sorts={},F=[];
-$('#nav').innerHTML=tabs.map((t,i)=>`<button data-t="${i}">${t}</button>`).join('');
+$('#nav').innerHTML=tabs.map((t,i)=>`<button role="tab" id="tab-${i}" data-t="${i}" aria-selected="${i===tab}" aria-controls="view">${t}</button>`).join('');
 const projs=[...new Set(D.tasks.map(t=>t.proj))].sort();
 $('#fp').innerHTML='<option value="">All projects ('+projs.length+')</option>'+projs.map(p=>`<option>${esc(p)}</option>`).join('');
 function filt(){const p=$('#fp').value,q=$('#fq').value.toLowerCase();F=D.tasks.filter(t=>(!p||t.proj==p)&&(!q||(t.prompt+t.title).toLowerCase().includes(q)))}
@@ -144,7 +151,7 @@ function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
  <h2 style="margin-top:12px">Context size per turn</h2>${svg}<div class="s">peak ${N(t.ctx_max)} tokens</div></div></div>`}
 
 const views=[overview,tasksView,toolsView,modelsView,bottlenecks];
-function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=>b.classList.toggle('on',i==tab));
+function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=>{const on=i==tab;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});
  $('#view').innerHTML=F.length?views[tab]():'<div class="card">No tasks match.</div>'}
 const pl=(n,w)=>`${N(n)} ${w}${n==1?'':'s'}`;
 const rates=Object.entries(D.price).sort(([a],[b])=>a.localeCompare(b)).map(([k,p])=>`<tr><td><code>${esc(k)}</code></td>${p.map(x=>`<td class="n">${x}</td>`).join('')}</tr>`).join('');
