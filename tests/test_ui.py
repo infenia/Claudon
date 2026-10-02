@@ -566,6 +566,39 @@ class TestClaudonUI(unittest.TestCase):
         self.page.click("nav button:text-is('Ask AI')")
         self.assertEqual(self.page.locator(".msg").count(), 0)
 
+    def test_ai_shows_activity_even_with_reduced_motion(self):
+        """Linux desktops with animations off report reduced motion: the AI must still visibly work."""
+        ctx = self.browser.new_context(reduced_motion="reduce")
+        ctx.add_init_script(NO_AI)
+        self.page = ctx.new_page()
+        self.addCleanup(ctx.close)
+        gated = """window.__gate = []; const __wait = () => new Promise(r => __gate.push(r));
+            window.__release = () => __gate.splice(0).forEach(r => r());
+            __session.contextUsage = 1500;
+            __session.promptStreaming = () => (async function* () { await __wait(); yield '- First point\\n- Second'; await __wait(); yield ' point.'; })();"""
+        self.chat_page("q => []")
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "available") + gated)
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.page.fill("#q", "hi")
+        self.page.keyboard.press("Enter")
+        running = "sel => document.querySelector(sel).getAnimations({subtree: true}).filter(a => a.playState == 'running').length"
+        self.assertGreater(self.page.evaluate(running, ".dots"), 0)              # opacity pulse instead of bouncing
+        self.assertIn("Thinking", self.page.locator(".msg.bot .wait").inner_text())
+        self.assertEqual(self.page.locator(".msg.bot [data-since]").count(), 1)  # elapsed timer
+        self.page.evaluate("__release()")
+        caret = self.page.locator(".msg.bot .caret")
+        caret.wait_for()
+        self.assertEqual(caret.evaluate("e => e.parentElement.tagName"), "LI")    # caret ends the text, not a new line
+        self.assertGreater(self.page.evaluate(running, ".msg.bot .ans"), 0)
+        self.page.evaluate("__release()")
+        self.page.locator("#ask button[aria-label=Send]").wait_for()
+        self.assertEqual(self.page.locator(".caret").count(), 0)
+        mem = self.page.locator(".mem")
+        self.assertIn("Memory", mem.inner_text())
+        self.assertIn("context window", mem.get_attribute("data-tip"))
+        self.assertIn("not about your screen", mem.get_attribute("data-tip"))
+
     def test_dark_mode_color_scheme(self):
         """Test theme dark mode CSS variable overrides for background and card colors."""
         dark_context = self.browser.new_context(

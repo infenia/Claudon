@@ -68,7 +68,8 @@ nav button.ait svg{width:12px;height:12px;fill:var(--think);margin-right:5px;ver
 .msg.bot .body{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:4px 16px 16px 16px;padding:10px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .msg.bot.err .body{border-color:rgba(239,68,68,.35);color:var(--err)}.who{font-size:12px;font-weight:600;margin-bottom:4px}.who span{font-weight:400;color:var(--mute)}
 .ans{overflow-wrap:anywhere}.ans p{margin:0 0 7px}.ans>:last-child{margin-bottom:0}.ans ul,.ans ol{margin:2px 0 8px;padding-left:20px}.ans li{margin:3px 0}.ans .chip{margin:0 2px;vertical-align:1px}
-.ans.live::after{content:'';display:inline-block;width:7px;height:15px;margin-left:3px;vertical-align:-3px;border-radius:2px;background:var(--think);animation:blink 1s steps(2) infinite}
+.caret{display:inline-block;width:7px;height:15px;margin-left:3px;vertical-align:-3px;border-radius:2px;background:var(--think);animation:blink 1s steps(2) infinite}
+.wait{display:inline-flex;align-items:center;gap:8px;color:var(--mute);font-size:12px}.wait .dots{padding:0}
 .dots{display:inline-flex;gap:4px;padding:4px 0}.dots i{width:7px;height:7px;border-radius:50%;background:var(--think);animation:dot 1.2s infinite}.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
 @keyframes dot{0%,80%,100%{opacity:.25;transform:none}40%{opacity:1;transform:translateY(-3px)}}@keyframes blink{50%{opacity:0}}
 .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start;margin-top:9px}.seen[open]{flex-basis:100%}.seen summary{list-style:none;display:inline-flex}.seen summary::-webkit-details-marker{display:none}
@@ -86,7 +87,16 @@ nav button.ait svg{width:12px;height:12px;fill:var(--think);margin-right:5px;ver
 .send{width:36px;height:36px;flex:none;border:0;border-radius:10px;background:var(--ai);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 14px -8px var(--ai-glow);transition:filter .15s,transform .15s}
 .send:hover{filter:brightness(1.1)}.send:active{transform:translateY(1px)}.send svg{width:16px;height:16px;fill:currentColor}.send.stop{background:var(--fg);color:var(--card)}
 .hint{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:7px}kbd{font:11px/1 inherit;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 4px;background:var(--card)}
-@media(prefers-reduced-motion:reduce){.shim,.dots i,.ans.live::after,.find.flash{animation:none}.prio li,.sq,.ai-btn,.send,.msgs{transition:none;scroll-behavior:auto}}
+/* reduced motion: nothing moves, but the AI still visibly works (opacity pulses, a blinking caret, an elapsed timer) */
+@keyframes pulse{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.shim{animation:pulse 1.6s ease-in-out infinite;background:var(--line)}.dots i{animation-name:pulse}
+ .prio li,.sq,.ai-btn,.send{transition:none}.prio li:hover,.sq:hover{transform:none}.msgs{scroll-behavior:auto}}
+/* instant tooltips for the AI controls (the native title one is slow and easy to miss) */
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;z-index:20;top:calc(100% + 8px);left:50%;transform:translateX(-50%);width:max-content;max-width:300px;
+ white-space:normal;text-align:left;font-size:12px;font-weight:400;line-height:1.45;letter-spacing:0;color:var(--card);background:var(--fg);padding:7px 10px;border-radius:8px;box-shadow:0 10px 28px -10px rgba(0,0,0,.45);pointer-events:none}
+[data-tip].tip-r::after{left:auto;right:0;transform:none}[data-tip].tip-up::after{top:auto;bottom:calc(100% + 8px)}
+.dotted{border-bottom:1px dotted var(--mute);cursor:help}
 .chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
 #modal{position:fixed;inset:0;background:#0008;display:none;z-index:10;overflow:auto;padding:30px}#modal>div{background:var(--card);max-width:1200px;margin:auto;border-radius:12px;padding:20px;position:relative}
 #x{position:absolute;right:14px;top:10px;cursor:pointer;font-size:22px;line-height:1;color:var(--mute);background:none;border:0;padding:4px 8px;border-radius:6px}#x:hover{background:var(--bg);color:var(--text,inherit)}
@@ -126,6 +136,10 @@ const IC={spark:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2.5l2.
  data:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3C7.6 3 4 4.3 4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6c0-1.7-3.6-3-8-3zm6 15c-.3.4-2.6 1-6 1s-5.7-.6-6-1v-2.3c1.5.8 3.7 1.3 6 1.3s4.5-.5 6-1.3zm0-4.5c-.3.4-2.6 1-6 1s-5.7-.6-6-1v-2.3c1.5.8 3.7 1.3 6 1.3s4.5-.5 6-1.3zM12 9c-3.4 0-5.7-.6-6-1 .3-.4 2.6-1 6-1s5.7.6 6 1c-.3.4-2.6 1-6 1z"/></svg>',
  clear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>',
  info:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z"/></svg>'};
+const tip=t=>` data-tip="${esc(t)}"`;
+// "Thinking · 4s": elements with data-since count up once a second while they are on screen
+let TICK=0;const since=()=>{if(!TICK)TICK=setInterval(()=>{const l=document.querySelectorAll('[data-since]');if(!l.length){clearInterval(TICK);TICK=0}
+ l.forEach(e=>e.textContent=T((Date.now()-e.dataset.since)/1000))},1000);return `<span data-since="${Date.now()}">0s</span>`};
 const drawNav=()=>$('#nav').innerHTML=tabs.map((t,i)=>`<button role="tab" id="tab-${i}" data-t="${i}" aria-selected="${i===tab}" aria-controls="view"${t=='Ask AI'?` class="ait">${IC.spark}`:'>'}${t}</button>`).join('');drawNav();
 const projs=[...new Set(D.tasks.map(t=>t.proj))].sort();
 $('#fp').innerHTML='<option value="">All projects ('+projs.length+')</option>'+projs.map(p=>`<option>${esc(p)}</option>`).join('');
@@ -330,7 +344,7 @@ async function aiSummarize(){const fs=findings(F),key=sumKey(fs),ctl=AI.ctl=new 
   else{const s=await Summarizer.create({...SUMO,sharedContext:'Findings from Claudon, a report on Claude Code (an AI coding agent) sessions.',monitor,signal});
    AI.sm='available';AI.pct=null;AI.out={text:''};render();
    try{for await(const c of s.summarizeStreaming(fs.map(f=>`${plain(f.title)}. ${plain(f.why)} Fix: ${plain(f.fix)}`).join('\n'),{context:'Say what to fix first.',signal})){
-     AI.out.text+=c;const el=$('#aitext');if(el)el.innerHTML=fmtAnswer(AI.out.text)}}
+     AI.out.text+=c;const el=$('#aitext');if(el)el.innerHTML=fmtAnswer(AI.out.text,1)}}
    finally{s.destroy()}}
   AI.st='done';store.set(key,AI.out)}
  catch(e){Object.assign(AI,e.name=='AbortError'?{st:'idle',out:null}:{st:'err',err:e.name=='NotAllowedError'?'The browser wants a click to start the model; press the button again.':
@@ -338,22 +352,23 @@ async function aiSummarize(){const fs=findings(F),key=sumKey(fs),ctl=AI.ctl=new 
  if(AI.ctl==ctl){AI.ctl=null;render()}}
 function aiCard(fs){const e=engine();if(!e)return '';const av=e=='lm'?AI.lm:AI.sm,key=sumKey(fs);
  if(AI.key!=key&&AI.st!='run'){AI.out=store.get(key);Object.assign(AI,{key,st:AI.out?'done':'idle',err:''})}   // each filter has its own summary
- const titles=Object.fromEntries(fs.map(f=>[f.key,plain(f.title)])),pill=`<span class="pill">On-device · ${e=='lm'?'Prompt API':'Summarizer API'}</span>`;
+ const titles=Object.fromEntries(fs.map(f=>[f.key,plain(f.title)])),pill=`<span class="pill dotted"${tip(`Runs in your browser on this computer with its built-in model (the ${e=='lm'?'Prompt':'Summarizer'} API). Nothing from this report is sent anywhere.`)}>On-device · ${e=='lm'?'Prompt API':'Summarizer API'}</span>`;
  const head=right=>`<div class="ai-head"><div class="spark">${IC.spark}</div><h2>AI summary</h2>${pill}<span class="grow"></span>${right||''}</div>`;
  const dl=AI.pct!=null&&AI.pct<1?`<div class="s" style="margin-top:12px">Downloading your browser's built-in model… <b id="aipcttxt">${P(AI.pct)}</b></div><div class="pbar"><i id="aipct" style="width:${AI.pct*100}%"></i></div>`:'';
  const err=AI.st=='err'?`<div class="aierr">${esc(AI.err)}</div>`:'';
  let body;
- if(AI.st=='run')body=head(`<button class="ghost" data-ai="stop">${IC.stop}Stop</button>`)+(dl||(AI.out?.text?'':
-   '<div class="shim" style="width:46%;height:16px;margin-top:16px"></div><div class="shim"></div><div class="shim" style="width:82%"></div><div class="s">Reading the findings on this device…</div>'))+
-   (AI.out?.text!=null?`<div id="aitext" class="ans live" style="margin-top:12px">${fmtAnswer(AI.out.text)}</div>`:'');
- else if(AI.st=='done'){const o=AI.out;body=head(`<button class="ghost" data-ai="sum">${IC.redo}Regenerate</button>`)+
+ if(AI.st=='run')body=head(`<button class="ghost tip-r" data-ai="stop"${tip('Stop the model; the findings below stay as they are')}>${IC.stop}Stop</button>`)+(dl||(AI.out?.text?'':
+   '<div class="shim" style="width:46%;height:16px;margin-top:16px"></div><div class="shim"></div><div class="shim" style="width:82%"></div>'+
+   `<div class="wait"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Reading the findings on this device · ${since()}</div>`))+
+   (AI.out?.text!=null?`<div id="aitext" class="ans" style="margin-top:12px">${fmtAnswer(AI.out.text,1)}</div>`:'');
+ else if(AI.st=='done'){const o=AI.out;body=head(`<button class="ghost tip-r" data-ai="sum"${tip('Write a new summary for the current filters')}>${IC.redo}Regenerate</button>`)+
    (o.text!=null?`<div id="aitext" class="ans" style="margin:12px 0 14px">${fmtAnswer(o.text)}</div>`:`<div class="ai-headline">${esc(o.headline)}</div><p class="ai-sum">${esc(o.summary)}</p>`+
    (o.priorities.length?`<ol class="prio">${o.priorities.map(p=>`<li><a href="#f-${esc(p.finding)}" data-f="${esc(p.finding)}">${esc(titles[p.finding]||p.finding)}</a><span>${esc(p.action)}</span></li>`).join('')}</ol>`:''))+
    `<div class="ai-foot">${IC.shield}Written on this computer by your browser's built-in model and may be imprecise. The numbers in the findings below are exact.</div>`}
  else body=`<div class="ai-idle"><div class="spark">${IC.spark}</div><div class="txt"><div class="ai-head"><h2>AI summary</h2>${pill}</div>`+
    `<p class="s">${av=='available'?'Turn the findings below into a short brief: where the time and money go, and what to fix first. Runs on this computer.':
     'Your browser downloads its built-in model once (a few GB; it needs about 22 GB of free disk). After that it runs on this computer, offline too; nothing from this report is sent anywhere.'}</p></div>`+
-   `<button class="ai-btn" data-ai="sum">${IC.spark}${av=='available'?'Summarize with on-device AI':av=='downloading'?'Continue the model download':'Enable on-device AI'}</button></div>`+dl;
+   `<button class="ai-btn tip-r" data-ai="sum"${tip(av=='available'?'Summarize the findings below with the model built into your browser. It runs on this computer.':'Ask the browser to download its built-in model once; then the summary runs on this computer, offline too.')}>${IC.spark}${av=='available'?'Summarize with on-device AI':av=='downloading'?'Continue the model download':'Enable on-device AI'}</button></div>`+dl;
  return `<div class="card ai-card" id="ai">${body}${err}</div>`}
 // ---- Ask AI: chat about the current view with the on-device model (Prompt API only) ----
 const CHAT={msgs:store.get('chat')||[],sess:null,scope:null,ctl:null,overflow:false,usage:null,draft:''};
@@ -402,7 +417,7 @@ async function ask(q){q=q.trim();if(!q||CHAT.ctl)return;CHAT.draft='';const ctl=
  try{const s=await chatSession();
   for await(const c of s.promptStreaming(`Data for this question (JSON):\n${JSON.stringify(data)}\n\nQuestion: ${q}`,{signal:ctl.signal})){
    a.text+=c;const el=$('#m'+(CHAT.msgs.length-1)),box=$('#msgs');if(!el)continue;
-   const pinned=box.scrollHeight-box.scrollTop-box.clientHeight<90;el.innerHTML=fmtAnswer(a.text);if(pinned)box.scrollTop=box.scrollHeight}
+   const pinned=box.scrollHeight-box.scrollTop-box.clientHeight<90;el.innerHTML=fmtAnswer(a.text,1);if(pinned)box.scrollTop=box.scrollHeight}
   CHAT.usage=s.contextWindow?s.contextUsage/s.contextWindow:null}
  catch(e){if(e.name!='AbortError'){a.err=1;a.text=e.name=='NotAllowedError'?'The browser wants a click to start the model; ask again.':`The on-device model failed: ${e.message||e.name||e}`}
   else if(!a.text)a.text='(stopped)'}
@@ -410,30 +425,32 @@ async function ask(q){q=q.trim();if(!q||CHAT.ctl)return;CHAT.draft='';const ctl=
 // model text -> escaped HTML with a small markdown subset (paragraphs, - / 1. lists, **bold**, `code`);
 // [task ids] it cites become chips, but only for tasks that exist
 const inl=s=>s.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\[([^\]\s]+#\d+)\]/g,(m,id)=>D.tasks.some(t=>t.id==id)?chip(id):m);
-function fmtAnswer(s){let h='',list='';const close=()=>{if(list)h+=`</${list}>`;list=''};
+function fmtAnswer(s,live){let h='',list='';const close=()=>{if(list)h+=`</${list}>`;list=''};
  for(const line of esc(s).split('\n')){const m=line.match(/^\s*(?:[-*•]|(\d+)[.)])\s+(.*)/);
   if(m){const k=m[1]?'ol':'ul';if(list!=k){close();h+=`<${k}>`;list=k}h+=`<li>${inl(m[2])}</li>`}else{close();if(line.trim())h+=`<p>${inl(line)}</p>`}}
- close();return h}
+ close();if(!live)return h;const c='<span class="caret" aria-hidden="true"></span>';         // streaming caret ends the last line
+ return /<\/(p|li)>(<\/[ou]l>)?$/.test(h)?h.replace(/(<\/(?:p|li)>)((?:<\/[ou]l>)?)$/,c+'$1$2'):h+c}
 function chatView(){const fs=findings(F),top=[...F].sort((x,y)=>y.cost-x.cost)[0],projs=[...new Set(F.map(t=>t.proj))],busy=!!CHAT.ctl,last=CHAT.msgs.length-1;
  const sugg=['What should I fix first?',`Why did [${top.id}] cost so much?`,'Where does my idle time come from?','Which tools fail most often, and why does it matter?',
   projs.length>1?`Which tasks in ${projs[0]} were slowest?`:'Which tasks were slowest this week?',fs.some(f=>f.key=='cache-expiry')?'How much did expired caches cost me?':'How could I spend less?'];
  const sq=q=>`<button type="button" class="sq" data-q="${esc(q)}">${IC.spark}<span>${esc(q)}</span></button>`;
  const msgs=CHAT.msgs.map((m,i)=>m.role=='user'?`<div class="msg me"><div class="bub">${esc(m.text)}</div></div>`:
   `<div class="msg bot${m.err?' err':''}"><div class="spark sm">${IC.spark}</div><div class="body"><div class="who">Claudon AI <span>· on-device</span></div>`+
-  `<div class="ans${busy&&i==last?' live':''}" id="m${i}">${m.text?fmtAnswer(m.text):'<span class="dots" aria-label="Thinking"><i></i><i></i><i></i></span>'}</div>`+
-  (m.text&&!(busy&&i==last)?`<div class="acts"><button type="button" class="ghost" data-copy="${i}">${IC.copy}Copy</button>`+
-   (m.data?`<details class="seen"><summary class="ghost">${IC.data}Data the model saw</summary><pre class="pre">${esc(m.data)}</pre></details>`:'')+'</div>':'')+'</div></div>').join('');
- const scope=`${F.length.toLocaleString()} task${F.length==1?'':'s'} in view${$('#fp').value?' · '+esc($('#fp').value):''}${$('#fq').value?' · “'+esc($('#fq').value)+'”':''}`;
+  `<div class="ans" id="m${i}">${m.text?fmtAnswer(m.text,busy&&i==last):`<span class="wait" role="status"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Thinking · ${since()}</span>`}</div>`+
+  (m.text&&!(busy&&i==last)?`<div class="acts"><button type="button" class="ghost" data-copy="${i}"${tip('Copy this answer as text')}>${IC.copy}Copy</button>`+
+   (m.data?`<details class="seen"><summary class="ghost"${tip('Show the exact report data this answer was based on. The model sees nothing else besides the report summary.')}>${IC.data}Data the model saw</summary><pre class="pre">${esc(m.data)}</pre></details>`:'')+'</div>':'')+'</div></div>').join('');
+ const scope=`<span class="dotted"${tip('The chat answers about the tasks in the current view. Use the project filter or search at the top to narrow it.')}>${F.length.toLocaleString()} task${F.length==1?'':'s'} in view</span>${$('#fp').value?' · '+esc($('#fp').value):''}${$('#fq').value?' · “'+esc($('#fq').value)+'”':''}`;
  return `<div class="card ai-card chatc"><div class="ai-head chat-head"><div class="spark">${IC.spark}</div><div><h2>Ask about this report</h2><div class="s">${scope}</div></div><span class="grow"></span>`+
-  (CHAT.usage>=.01?`<span class="mem" title="How much of the on-device model's memory this conversation uses"><i><b style="width:${Math.min(100,CHAT.usage*100)}%"></b></i>${P(CHAT.usage)}</span>`:'')+
-  `<span class="pill">On-device · Prompt API</span>${CHAT.msgs.length?`<button class="ghost" data-chat="clear">${IC.clear}Clear chat</button>`:''}</div>`+
+  (CHAT.usage!=null?`<span class="mem dotted tip-r"${tip(`How full the on-device model's working memory (its context window) is: the report data for this view plus the conversation so far. It is not about your screen. Near 100% the oldest messages start to be forgotten; Clear chat starts fresh.`)} tabindex="0">Memory <i><b style="width:${Math.min(100,CHAT.usage*100)}%"></b></i>${CHAT.usage<.01?'<1%':P(CHAT.usage)}</span>`:'')+
+  `<span class="pill dotted tip-r"${tip('Runs in your browser on this computer with its built-in model (the Prompt API). Nothing you ask is sent anywhere.')}>On-device · Prompt API</span>`+
+  `${CHAT.msgs.length?`<button class="ghost tip-r" data-chat="clear"${tip('Delete this conversation from this browser and start fresh')}>${IC.clear}Clear chat</button>`:''}</div>`+
   (AI.lm=='available'?'':`<div class="note">${IC.info}<span>Your first question asks the browser to download its built-in model once (a few GB). After that it runs on this computer, offline too; nothing is sent anywhere.</span></div>`)+
   `<div class="msgs" id="msgs" aria-live="polite">${msgs||`<div class="chat-empty"><div class="spark lg">${IC.spark}</div><h3>What would you like to know?</h3>`+
    `<p class="s">Answers use the numbers in this report, run on this computer, and link to the tasks they cite.</p><div class="sgrid">${sugg.map(sq).join('')}</div></div>`}</div>`+
   (CHAT.overflow?'<div class="aierr" style="margin:0 0 10px">The conversation no longer fits in the model\'s memory, so the oldest messages are being forgotten. Clear the chat to start fresh.</div>':'')+
   (CHAT.msgs.length&&!busy?`<div class="follow">${sugg.slice(0,5).map(sq).join('')}</div>`:'')+
   `<form id="ask" class="composer"><textarea id="q" rows="1" aria-label="Ask a question" placeholder="Ask about time, cost, tools, a project or a task…" ${busy?'disabled':''}></textarea>`+
-  (busy?`<button type="button" class="send stop" data-chat="stop" aria-label="Stop" title="Stop">${IC.stop}</button>`:`<button class="send" aria-label="Send" title="Send">${IC.send}</button>`)+'</form>'+
+  (busy?`<button type="button" class="send stop tip-r tip-up" data-chat="stop" aria-label="Stop"${tip('Stop the answer')}>${IC.stop}</button>`:`<button class="send tip-r tip-up" aria-label="Send"${tip('Send (Enter)')}>${IC.send}</button>`)+'</form>'+
   `<div class="s hint"><span><kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</span><span>Answers come from your browser's model and can be wrong; check the linked tasks.</span></div></div>`}
 // after the chat view is drawn: newest message in sight, the draft and its height restored, focus in the composer
 function chatMounted(){const box=$('#msgs'),q=$('#q');if(box)box.scrollTop=box.scrollHeight;
