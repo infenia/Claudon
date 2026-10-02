@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/infenia/claudon/compare/v0.3.0...v0.4.0) (2026-10-02)
+
+
+### Features
+
+* add Claudon logo and favicon ([#34](https://github.com/infenia/claudon/issues/34)) ([f6e7688](https://github.com/infenia/claudon/commit/f6e768862c2350f2182dd98a4e4f06e9a8882577))
+* animated light/dark demo in README, centred CTA on Pages ([#24](https://github.com/infenia/claudon/issues/24)) ([46cd2a4](https://github.com/infenia/claudon/commit/46cd2a4864ac3eedc50d247a6a407e3208172e9f))
+* chat with your analytics using the on-device model ([#31](https://github.com/infenia/claudon/issues/31)) ([7da2ece](https://github.com/infenia/claudon/commit/7da2ece9578d0992658d79d01942da7fca03b9c5))
+* crisper demo from lossless frames, lazy-load on README and Pages ([#26](https://github.com/infenia/claudon/issues/26)) ([202c3ab](https://github.com/infenia/claudon/commit/202c3ab0bde14add7953fb574e29d2d5fd63b6be))
+* optional on-device AI summary of bottlenecks ([#30](https://github.com/infenia/claudon/issues/30)) ([831c298](https://github.com/infenia/claudon/commit/831c29828d2d9a467833f2bee0ced072c4eff036))
+* ranked, actionable bottleneck findings with richer metrics ([#29](https://github.com/infenia/claudon/issues/29)) ([6b27778](https://github.com/infenia/claudon/commit/6b277781b96ccca3efb7279c85446e2f988386e4))
+* refined dashboard design with a compact one-row KPI strip ([#32](https://github.com/infenia/claudon/issues/32)) ([ad087f7](https://github.com/infenia/claudon/commit/ad087f736725bdeb391aa9ff119083ff90fe7588))
+* style header navigation as segmented tab control and improve typography ([#28](https://github.com/infenia/claudon/issues/28)) ([227465d](https://github.com/infenia/claudon/commit/227465d26bf81db080f8d20bd694a36167be8f2c))
+
+
+### Bug Fixes
+
+* add README.md to release-please extra files for version updates ([#27](https://github.com/infenia/claudon/issues/27)) ([4d07fdf](https://github.com/infenia/claudon/commit/4d07fdf74e220363a42da158ad66d38ee1687ba7))
+
 ## [0.3.0](https://github.com/infenia/claudon/compare/v0.2.1...v0.3.0) (2026-10-02)
 
 
