@@ -5,7 +5,8 @@
 <style>
 body{margin:0;background:#0d1117}
 .markdown-body{box-sizing:border-box;max-width:920px;margin:0 auto;padding:32px 20px}
-.markdown-body a.open{display:inline-block;background:#3b82f6;color:#fff!important;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none!important;margin:8px 0 16px}
+.markdown-body a.open{display:inline-block;background:#3b82f6;color:#fff!important;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none!important;margin:0}
+.markdown-body .cta{text-align:center;margin:16px 0}
 .markdown-body a.open:hover{background:#2563eb}
 </style></head>
 <body><article class="markdown-body" id="md">Loading…</article>
@@ -14,7 +15,10 @@ body{margin:0;background:#0d1117}
 const GH='https://github.com/infenia/claudon/blob/main/';
 fetch('README.md').then(r=>r.text()).then(t=>{
   const el=document.getElementById('md');
-  el.innerHTML='<a class="open" href="app/">▶ Open the in-browser app (no install)</a>'+marked.parse(t);
+  el.innerHTML=marked.parse(t);
+  const cta='<p class="cta"><a class="open" href="app/">▶ Try it in your browser — no install</a></p>',pre=el.querySelector('pre');
+  pre?pre.insertAdjacentHTML('afterend',cta):el.insertAdjacentHTML('afterbegin',cta);
+  el.querySelectorAll('picture source').forEach(s=>s.media='all'); // site is dark-only
   el.querySelectorAll('a[href]').forEach(a=>{const h=a.getAttribute('href');
     if(h.startsWith('http')||h.startsWith('#')||h.startsWith('app/'))return;
     a.href=h.replace(/^\.?\/?/,GH)});
