@@ -442,8 +442,9 @@ class TestClaudonUI(unittest.TestCase):
         self.ai_page(reply=self.SUMMARY)
         ai = self.page.locator("#ai")
         ai.locator("button", has_text="Summarize with on-device AI").click()
-        self.assertIn("slow you down", ai.locator("p b").inner_text())
-        self.assertIn('<img src=x', ai.locator("p b").inner_text())        # model output is text, never markup
+        headline = ai.locator(".ai-headline")
+        self.assertIn("slow you down", headline.inner_text())
+        self.assertIn('<img src=x', headline.inner_text())                 # model output is text, never markup
         self.assertIsNone(self.page.evaluate("window.__xss"))
         links = ai.locator("ol li a")
         self.assertEqual(links.all_inner_texts(), ["Permission prompts held up 2m 30s of work"])   # invented key dropped
@@ -478,7 +479,7 @@ class TestClaudonUI(unittest.TestCase):
         ai.locator("button", has_text="Enable on-device AI").click()
         self.assertEqual(self.page.locator("#aipcttxt").inner_text(), "50%")
         self.page.evaluate("window.__finish()")
-        self.assertIn("slow you down", ai.locator("p b").inner_text())
+        self.assertIn("slow you down", ai.locator(".ai-headline").inner_text())
 
     def test_ai_failure_keeps_the_dashboard(self):
         self.ai_page(extra="window.__beforeCreate = async () => { throw new DOMException('no GPU', 'NotSupportedError'); };")
@@ -495,10 +496,10 @@ class TestClaudonUI(unittest.TestCase):
         for _ in range(3):
             tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
         self.open_bottlenecks(tr)
-        self.assertIn("Summarizer API", self.page.locator("#ai h2").inner_text())
+        self.assertIn("Summarizer API", self.page.locator("#ai").inner_text())
         self.assertEqual(self.page.locator("#nav button").count(), 5)           # no chat without the Prompt API
         self.page.locator("#ai button").click()
-        self.assertEqual(self.page.locator("#aitext").inner_text(), "* Approve less often.\n* Then fix Bash.")
+        self.assertEqual(self.page.locator("#aitext li").all_inner_texts(), ["Approve less often.", "Then fix Bash."])   # bullets become a list
         self.assertIn("Permission prompts held up", self.page.evaluate("__seen[0]"))
 
     def chat_page(self, chunks):
@@ -517,7 +518,7 @@ class TestClaudonUI(unittest.TestCase):
     def ask(self, q):
         self.page.fill("#q", q)
         self.page.keyboard.press("Enter")
-        self.page.locator("#ask button", has_text="Ask").wait_for()          # Stop turns back into Ask when done
+        self.page.locator("#ask button[aria-label=Send]").wait_for()          # Stop turns back into Send when done
 
     def test_chat_tab_only_with_prompt_api(self):
         self.chat_page("q => ['ok']")
@@ -528,7 +529,7 @@ class TestClaudonUI(unittest.TestCase):
     def test_chat_answers_with_cited_tasks_and_shows_its_data(self):
         costly = self.chat_page("q => ['The most expensive is ', '[' + [...D.tasks].sort((x, y) => y.cost - x.cost)[0].id + ']', ', not [nope#9].']")
         self.ask("Which task cost the most?")
-        answer = self.page.locator(".msg.a").last
+        answer = self.page.locator(".msg.bot").last
         self.assertIn("The most expensive is", answer.inner_text())
         self.assertIn("[nope#9]", answer.inner_text())                       # invented ids stay plain text
         chip = answer.locator(".chip")
@@ -551,8 +552,8 @@ class TestClaudonUI(unittest.TestCase):
 
     def test_chat_persists_across_reloads_until_cleared(self):
         self.chat_page("q => ['Answer to: ' + q.split('Question: ')[1]]")
-        self.page.locator(".chip[data-q]").first.click()                       # a suggested question
-        self.page.locator(".msg.a", has_text="Answer to: What should I fix first?").wait_for()
+        self.page.locator(".chat-empty [data-q]").first.click()                # a suggested question
+        self.page.locator(".msg.bot", has_text="Answer to: What should I fix first?").wait_for()
         self.page.reload()
         self.page.click("nav button:text-is('Ask AI')")
         self.assertEqual(self.page.locator(".msg").count(), 2)
