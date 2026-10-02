@@ -7,7 +7,7 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11","tnum"}
 header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 h1{font-size:16px;margin:0 8px 0 0}
-nav{display:inline-flex;background:var(--bg);padding:3px;border-radius:8px;border:1px solid var(--line);gap:2px;max-width:100%;overflow-x:auto}
+nav{display:inline-flex;background:var(--bg);padding:3px;border-radius:8px;border:1px solid var(--line);gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}nav::-webkit-scrollbar{display:none}
 nav button{white-space:nowrap;font:inherit;font-size:13px;font-weight:500;color:var(--mute);background:transparent;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all .15s ease}
 nav button:hover{color:var(--fg);background:rgba(0,0,0,.04)}
 @media(prefers-color-scheme:dark){nav button:hover{background:rgba(255,255,255,.06)}}
@@ -32,8 +32,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 .find{border-left:4px solid var(--tool);padding:8px 12px;margin:10px 0;background:var(--bg);border-radius:0 6px 6px 0}.find.hi{border-color:var(--err)}.find.info{border-color:var(--model)}
 .find .fh{display:flex;gap:12px;align-items:baseline;margin-bottom:2px}.find .fh b{flex:1}.imp{color:var(--mute);font-size:12px;white-space:nowrap}.fix{margin-top:4px}.find.flash{animation:flash 1.8s}@keyframes flash{0%,50%{outline:2px solid var(--model)}100%{outline:2px solid transparent}}
 /* on-device AI: one gradient built from the model / thinking / user colours, used sparingly so the data stays the focus */
-:root{--ai:linear-gradient(135deg,var(--model),var(--think) 55%,var(--user));--ai-glow:rgba(139,92,246,.35);--ai-tint:linear-gradient(135deg,rgba(59,130,246,.07),rgba(139,92,246,.07) 55%,rgba(236,72,153,.05))}
-@media(prefers-color-scheme:dark){:root{--ai-glow:rgba(139,92,246,.5);--ai-tint:linear-gradient(135deg,rgba(59,130,246,.12),rgba(139,92,246,.12) 55%,rgba(236,72,153,.08))}}
+:root{--bubble:#fff;--ai:linear-gradient(135deg,var(--model),var(--think) 55%,var(--user));--ai-glow:rgba(139,92,246,.35);--ai-tint:linear-gradient(135deg,rgba(59,130,246,.07),rgba(139,92,246,.07) 55%,rgba(236,72,153,.05))}
+@media(prefers-color-scheme:dark){:root{--bubble:#222837;--ai-glow:rgba(139,92,246,.5);--ai-tint:linear-gradient(135deg,rgba(59,130,246,.12),rgba(139,92,246,.12) 55%,rgba(236,72,153,.08))}}
 .ai-card{position:relative;border:1px solid transparent;background:linear-gradient(var(--card),var(--card)) padding-box,var(--ai) border-box;box-shadow:0 10px 30px -18px var(--ai-glow);overflow:visible}
 .ai-card::before{content:'';position:absolute;inset:0;border-radius:inherit;background:var(--ai-tint);pointer-events:none}.ai-card>*{position:relative}
 .ai-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ai-head h2{margin:0;font-size:15px;letter-spacing:-.01em}.ai-head .grow{flex:1}
@@ -62,12 +62,13 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 nav button.ait svg{width:12px;height:12px;fill:var(--think);margin-right:5px;vertical-align:-1px}nav button.ait.on{background:var(--ai)}nav button.ait.on svg{fill:#fff}
 .chatc{padding:16px 18px 12px}.chat-head .s{margin-top:1px}
 .mem{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mute)}.mem i{display:block;width:54px;height:5px;border-radius:3px;background:var(--line);overflow:hidden}.mem b{display:block;height:100%;background:var(--ai)}
-.msgs{display:flex;flex-direction:column;gap:16px;overflow-y:auto;min-height:260px;max-height:max(320px,calc(100vh - 340px));margin:14px -6px 10px;padding:4px 6px 6px;scroll-behavior:smooth}
-.msg{display:flex;gap:10px;max-width:min(900px,92%)}.msg.me{align-self:flex-end}.msg.bot{align-self:flex-start}
-.bub{background:linear-gradient(135deg,var(--model),var(--think));color:#fff;padding:9px 14px;border-radius:16px 16px 4px 16px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 6px 16px -10px rgba(59,130,246,.9)}
-.msg.bot .body{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:4px 16px 16px 16px;padding:10px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.msg.bot.err .body{border-color:rgba(239,68,68,.35);color:var(--err)}.who{font-size:12px;font-weight:600;margin-bottom:4px}.who span{font-weight:400;color:var(--mute)}
-.ans{overflow-wrap:anywhere}.ans p{margin:0 0 7px}.ans>:last-child{margin-bottom:0}.ans ul,.ans ol{margin:2px 0 8px;padding-left:20px}.ans li{margin:3px 0}.ans .chip{margin:0 2px;vertical-align:1px}
+.msgs{display:flex;flex-direction:column;gap:16px;overflow-y:auto;min-height:260px;max-height:max(320px,calc(100vh - 340px));margin:14px -6px 10px;padding:4px 6px 6px;scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.msgs::-webkit-scrollbar{width:8px}.msgs::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}.msgs::-webkit-scrollbar-track{background:transparent}
+.msg{display:flex;gap:10px;max-width:min(820px,92%)}.msg.me{align-self:flex-end}.msg.bot{align-self:flex-start}
+.bub{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:14.5px;line-height:1.55;padding:10px 15px;border-radius:18px 18px 4px 18px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 6px 16px -10px rgba(59,130,246,.9)}
+.msg.bot .body{min-width:0;background:var(--bubble);border:1px solid var(--line);border-radius:4px 18px 18px 18px;padding:12px 18px 12px 16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 6px 16px -12px rgba(16,24,40,.25)}
+.msg.bot.err .body{border-color:rgba(239,68,68,.35);color:var(--err)}.who{font-size:11.5px;font-weight:600;color:var(--mute);margin-bottom:6px;letter-spacing:.01em}.who span{font-weight:400;color:var(--mute)}
+.ans{overflow-wrap:anywhere;font-size:14.5px;line-height:1.65;max-width:72ch;color:var(--fg)}.ans p{margin:0 0 10px}.ans>:last-child{margin-bottom:0}.ans ul,.ans ol{margin:4px 0 10px;padding-left:22px}.ans li{margin:4px 0;padding-left:2px}.ans li::marker{color:var(--think)}.ans b{font-weight:650}.ans .chip{margin:0 2px;vertical-align:1px}
 .caret{display:inline-block;width:7px;height:15px;margin-left:3px;vertical-align:-3px;border-radius:2px;background:var(--think);animation:blink 1s steps(2) infinite}
 .wait{display:inline-flex;align-items:center;gap:8px;color:var(--mute);font-size:12px}.wait .dots{padding:0}
 .dots{display:inline-flex;gap:4px;padding:4px 0}.dots i{width:7px;height:7px;border-radius:50%;background:var(--think);animation:dot 1.2s infinite}.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
@@ -79,7 +80,7 @@ nav button.ait svg{width:12px;height:12px;fill:var(--think);margin-right:5px;ver
 .sq{font:inherit;font-size:13px;line-height:1.4;text-align:left;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;cursor:pointer;display:flex;gap:8px;align-items:flex-start;transition:border-color .15s,transform .15s,box-shadow .15s}
 .sq:hover{border-color:var(--think);transform:translateY(-1px);box-shadow:0 8px 18px -14px var(--ai-glow)}.sq svg{flex:none;width:13px;height:13px;margin-top:3px;fill:var(--think)}
 .sgl{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--mute);white-space:nowrap;margin-right:4px}.sgl svg{width:11px;height:11px;fill:var(--think)}
-.sgfoot{margin-top:10px;min-height:16px}.follow{align-items:center;display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:thin}.follow .sq{white-space:nowrap;padding:5px 11px;border-radius:999px;font-size:12px;align-items:center}.follow .sq svg{margin:0}
+.sgfoot{margin-top:10px;min-height:16px}.follow{align-items:center;display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 10px}.follow .sq{white-space:nowrap;padding:5px 11px;border-radius:999px;font-size:12px;align-items:center;max-width:min(360px,100%)}.follow .sq span{overflow:hidden;text-overflow:ellipsis}.follow .sq svg{margin:0}
 .note{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--mute);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-top:12px}.note svg{flex:none;width:14px;height:14px;fill:var(--think);margin-top:1px}
 .composer{display:flex;align-items:flex-end;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 6px 6px 14px;transition:border-color .15s,box-shadow .15s}
 .composer:focus-within{border-color:var(--think);box-shadow:0 0 0 3px rgba(139,92,246,.16)}
@@ -481,13 +482,13 @@ async function aiSuggest(){if(AI.lm!='available'||CHAT.sg?.key==suggKey())return
 async function aiFollowUps(a,s){try{const c=await s.clone();
  try{const l=cleanQs(JSON.parse(await c.prompt('Suggest 3 short follow-up questions (at most 12 words each) the developer might ask next about this answer and the report data.',
    {responseConstraint:qSchema(3)}))?.questions,3);if(l.length){a.follow=l;saveChat();showSugg()}}finally{c.destroy()}}catch{}}
-const sq=q=>`<button type="button" class="sq" data-q="${esc(q)}">${IC.spark}<span>${esc(q)}</span></button>`;
+const sq=q=>`<button type="button" class="sq" data-q="${esc(q)}" title="${esc(q)}">${IC.spark}<span>${esc(q)}</span></button>`;
 function suggHtml(){const lastA=[...CHAT.msgs].reverse().find(m=>m.role=='assistant'),asked=new Set(CHAT.msgs.filter(m=>m.role=='user').map(m=>m.text));
  const ai=CHAT.sg?.key==suggKey()&&CHAT.sg.list,list=(lastA?.follow||[]).concat(ai||baseSugg(F,findings(F))).filter(q=>!asked.has(q));
  const lbl=lastA?.follow||ai?`<span class="sgl"${tip('Questions written for this view by the on-device model, from the report data')}>${IC.spark}Suggested by on-device AI</span>`:
   CHAT.sg?.busy?`<span class="sgl">${IC.spark}Writing suggestions for this view…</span>`:'';
  const u=[...new Set(list)];
- return CHAT.msgs.length?`<div class="follow">${lbl}${u.slice(0,5).map(sq).join('')}</div>`:`<div class="sgrid">${u.slice(0,6).map(sq).join('')}</div><div class="sgfoot">${lbl}</div>`}
+ return CHAT.msgs.length?`<div class="follow">${lbl}${u.slice(0,4).map(sq).join('')}</div>`:`<div class="sgrid">${u.slice(0,6).map(sq).join('')}</div><div class="sgfoot">${lbl}</div>`}
 const showSugg=()=>{const el=$('#sugg');if(el&&!CHAT.ctl)el.innerHTML=suggHtml()};
 // after the chat view is drawn: newest message in sight, the draft and its height restored, focus in the composer
 function chatMounted(){aiSuggest();const box=$('#msgs'),q=$('#q');if(box)box.scrollTop=box.scrollHeight;
