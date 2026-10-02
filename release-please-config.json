@@ -8,7 +8,7 @@
       "bump-patch-for-minor-pre-major": false,
       "include-v-in-tag": true,
       "include-component-in-tag": false,
-      "extra-files": ["claudon/__init__.py"],
+      "extra-files": ["claudon/__init__.py", "README.md"],
       "changelog-sections": [
         { "type": "feat", "section": "Features" },
         { "type": "fix", "section": "Bug Fixes" },
