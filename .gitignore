@@ -15,7 +15,9 @@ cc_report.html
 report.html
 *.html
 !wasm/index.html
+!claudon/dashboard.html
 
 # Editor / tool state
 .idea/
 .serena/
+.coverage

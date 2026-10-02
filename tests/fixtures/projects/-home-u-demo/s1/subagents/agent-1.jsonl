@@ -1,0 +1,2 @@
+{"timestamp": "2026-01-01T12:00:14Z", "type": "assistant", "uuid": "x1", "parentUuid": null, "isSidechain": true, "sessionId": "s1", "message": {"id": "ms1", "model": "claude-haiku-4-5-20251001", "usage": {"input_tokens": 200, "output_tokens": 80}, "content": [{"type": "tool_use", "id": "ts1", "name": "Read", "input": {"file_path": "/a"}}]}}
+{"timestamp": "2026-01-01T12:00:16Z", "type": "user", "uuid": "x2", "parentUuid": "x1", "isSidechain": true, "sessionId": "s1", "message": {"content": [{"type": "tool_result", "tool_use_id": "ts1", "content": "r"}]}}

@@ -53,7 +53,15 @@ jobs:
           pip install playwright
           playwright install chromium --with-deps
       - name: Run Python unit tests
+        if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13') }}
         run: python -m unittest discover tests
+      # one job also measures coverage (UI tests included); the floor guards against untested code piling up
+      - name: Run Python unit tests with coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+        run: |
+          pip install coverage
+          coverage run --source=claudon -m unittest discover tests
+          coverage report --fail-under=80
 
   test-node:
     runs-on: ${{ matrix.os }}
@@ -100,8 +108,15 @@ jobs:
             > /tmp/t/s.jsonl
           cd /tmp && /tmp/venv/bin/claudon /tmp/t/s.jsonl -o /tmp/report.html
           grep -q '"prompt":"hi"' /tmp/report.html
+      - name: Build and run the zipapp (what install.sh and the WASM page use)
+        run: |
+          python scripts/build_zipapp.py /tmp/claudon.pyz
+          python /tmp/claudon.pyz /tmp/t/s.jsonl -o /tmp/report-pyz.html
+          grep -q '"prompt":"hi"' /tmp/report-pyz.html
       - name: Pack and run npm package
         run: |
           npm pack
           npm install -g ./infenia-claudon-*.tgz
           cd /tmp && claudon --help
+          claudon /tmp/t/s.jsonl -o /tmp/report-npm.html
+          grep -q '"prompt":"hi"' /tmp/report-npm.html

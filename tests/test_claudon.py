@@ -9,7 +9,8 @@ from pathlib import Path
 # Add root directory to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import claudon
+from claudon import cli, discover, pricing, render, transcript
+from claudon.redaction import redact
 
 
 def user(ts, text):
@@ -40,37 +41,37 @@ class TestClaudon(unittest.TestCase):
         return f
 
     def test_price_longest_key_wins(self):
-        self.assertEqual(claudon.price("claude-opus-5-5")[0][:2], (4, 20))
-        self.assertEqual(claudon.price("claude-opus-4-8")[0][:2], (5, 25))
-        self.assertEqual(claudon.price("claude-opus-4-1-20250805")[0][:2], (15, 75))
-        self.assertEqual(claudon.price("claude-sonnet-4-6")[0][:2], (3, 15))
-        self.assertEqual(claudon.price("claude-fable-5-1"), ((10, 50, .25, 12.5, 20), False))
-        with mock.patch.dict(claudon.PRICE, {"claude-opus-5-5": (1, 1, 1, 1, 1)}):
-            self.assertEqual(claudon.price("claude-opus-5-5")[0], (1, 1, 1, 1, 1))
+        self.assertEqual(pricing.price("claude-opus-5-5")[0][:2], (4, 20))
+        self.assertEqual(pricing.price("claude-opus-4-8")[0][:2], (5, 25))
+        self.assertEqual(pricing.price("claude-opus-4-1-20250805")[0][:2], (15, 75))
+        self.assertEqual(pricing.price("claude-sonnet-4-6")[0][:2], (3, 15))
+        self.assertEqual(pricing.price("claude-fable-5-1"), ((10, 50, .25, 12.5, 20), False))
+        with mock.patch.dict(pricing.PRICE, {"claude-opus-5-5": (1, 1, 1, 1, 1)}):
+            self.assertEqual(pricing.price("claude-opus-5-5")[0], (1, 1, 1, 1, 1))
 
     def test_load_pricing_validates(self):
         good = self.tmp_path / "p.json"
         good.write_text('{"My-Model": [1, 2, 0.1, 1.25, 2]}', encoding="utf-8")
-        self.assertEqual(claudon.load_pricing(good), {"my-model": (1, 2, 0.1, 1.25, 2)})
+        self.assertEqual(pricing.load_pricing(good), {"my-model": (1, 2, 0.1, 1.25, 2)})
         bad = self.tmp_path / "bad.json"
         bad.write_text('{"x": [1, 2]}', encoding="utf-8")
         with self.assertRaises(SystemExit):
-            claudon.load_pricing(bad)
+            pricing.load_pricing(bad)
 
     def test_malformed_lines_are_skipped(self):
         f = self.write("p/proj/s.jsonl", [user(0, "hi"), "[]", "not json", '{"timestamp": "x"}',
                                           {"type": "user", "message": "str"}, assistant(5, "m1")])
-        self.assertEqual(len(claudon.build(str(f))["tasks"]), 1)
+        self.assertEqual(len(discover.build(str(f))["tasks"]), 1)
 
     def test_synthetic_messages_are_not_api_calls(self):
         f = self.write("p/proj/s.jsonl", [user(0, "hi"), assistant(5, "m1"), assistant(6, "m2", model="<synthetic>")])
-        t = claudon.build(str(f))["tasks"][0]
+        t = discover.build(str(f))["tasks"][0]
         self.assertEqual((t["calls"], t["est"], list(t["models"])), (1, False, ["claude-sonnet-5-5"]))
 
     def test_task_ids_unique_across_sessions_sharing_prefix(self):
         for name in ("agent-aaaa1111", "agent-aaaa2222"):
             self.write(f"p/proj/{name}.jsonl", [user(0, "hi"), assistant(5, name)])
-        ids = [t["id"] for t in claudon.build(str(self.tmp_path / "p"))["tasks"]]
+        ids = [t["id"] for t in discover.build(str(self.tmp_path / "p"))["tasks"]]
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_redact_strips_prompt_and_mcp_server_names(self):
@@ -78,8 +79,8 @@ class TestClaudon(unittest.TestCase):
         result = {"timestamp": "2026-01-01T12:00:07Z", "type": "user",
                   "message": {"content": [{"type": "tool_result", "tool_use_id": "tu1", "content": "ok"}]}}
         f = self.write("p/proj/0b5e7c2a-1111.jsonl", [user(0, "secret prompt"), assistant(5, "m1", content=[tool]), result])
-        data = claudon.build(str(f))
-        claudon.redact(data)
+        data = discover.build(str(f))
+        redact(data)
         dumped = json.dumps(data)
         self.assertNotIn("secret prompt", dumped)
         self.assertNotIn("acme-internal", dumped)
@@ -89,18 +90,18 @@ class TestClaudon(unittest.TestCase):
         self.assertEqual(data["tasks"][0]["id"], "session-1#0")
 
     def test_price_lookup(self):
-        p, est = claudon.price('claude-3-5-sonnet-20241022')
-        self.assertEqual(p, claudon.PRICE['sonnet'])
+        p, est = pricing.price('claude-3-5-sonnet-20241022')
+        self.assertEqual(p, pricing.PRICE['sonnet'])
         self.assertFalse(est)
 
-        p_unknown, est_unknown = claudon.price('unknown-model')
+        p_unknown, est_unknown = pricing.price('unknown-model')
         self.assertTrue(est_unknown)
 
     def test_install_plugin(self):
         fake_home = self.tmp_path / "home"
         with mock.patch.dict(os.environ, {"HOME": str(fake_home), "USERPROFILE": str(fake_home)}):
             os.environ.pop("CLAUDE_CONFIG_DIR", None)
-            claudon.install_plugin()
+            cli.install_plugin()
         cmd_file = fake_home / ".claude" / "commands" / "claudon.md"
         self.assertTrue(cmd_file.exists())
         self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
@@ -109,13 +110,13 @@ class TestClaudon(unittest.TestCase):
         cfg = self.tmp_path / "cfg"
         cmd_file = cfg / "commands" / "claudon.md"
         with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(cfg)}):
-            claudon.install_plugin()
-            claudon.install_plugin()                     # unchanged: no-op
+            cli.install_plugin()
+            cli.install_plugin()                     # unchanged: no-op
             cmd_file.write_text("my edits", encoding="utf-8")
             with self.assertRaises(SystemExit):
-                claudon.install_plugin()
+                cli.install_plugin()
             self.assertEqual(cmd_file.read_text(encoding="utf-8"), "my edits")
-            claudon.install_plugin(force=True)
+            cli.install_plugin(force=True)
         self.assertIn("claudon", cmd_file.read_text(encoding="utf-8"))
 
     def test_call_start_skips_records_written_with_the_response(self):
@@ -123,7 +124,7 @@ class TestClaudon(unittest.TestCase):
         att = {"timestamp": "2026-01-01T12:00:30Z", "type": "attachment", "uuid": "a1", "parentUuid": "u1",
                "attachment": {"type": "deferred_tools_record"}}
         reply = dict(assistant(30, "m1"), uuid="r1", parentUuid="a1")
-        t = claudon.build(str(self.write("p/proj/s.jsonl", [prompt, att, reply])))["tasks"][0]
+        t = discover.build(str(self.write("p/proj/s.jsonl", [prompt, att, reply])))["tasks"][0]
         self.assertEqual(t["model_s"], 30)
 
     def test_user_rejection_is_not_a_tool_error(self):
@@ -135,7 +136,7 @@ class TestClaudon(unittest.TestCase):
                 res("t1", "The user doesn't want to proceed with this tool use.", True),
                 res("t2", "command not found", True),
                 res("t3", "log: job interrupted at 12:00", False)]}}])
-        n, err, _, _, stopped = claudon.build(str(f))["tasks"][0]["tool_stats"]["Bash"]
+        n, err, _, _, stopped = discover.build(str(f))["tasks"][0]["tool_stats"]["Bash"]
         self.assertEqual((n, err, stopped), (3, 1, 1))
 
     def test_cost_mix_sums_to_cost(self):
@@ -143,7 +144,7 @@ class TestClaudon(unittest.TestCase):
         a["message"]["usage"] = {"input_tokens": 1000, "output_tokens": 500, "cache_read_input_tokens": 20000,
                                  "cache_creation_input_tokens": 3000,
                                  "cache_creation": {"ephemeral_1h_input_tokens": 2000, "ephemeral_5m_input_tokens": 1000}}
-        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
+        t = discover.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
         self.assertEqual(t["cost_mix"], [0.004, 0.01, 0.004, 0.021])   # 1h writes at 2x, 5m at 1.25x input
         self.assertAlmostEqual(sum(t["cost_mix"]), t["cost"], places=5)
 
@@ -152,7 +153,7 @@ class TestClaudon(unittest.TestCase):
         self.write(f"projects/proj-x/{sid}.jsonl", [user(0, "hi"), assistant(5, "m1")])
         self.write(f"projects/proj-x/{sid}/subagents/agent-1.jsonl", [dict(assistant(2, "s1"), isSidechain=True)])
         for path in ("projects", "projects/proj-x"):
-            tasks = claudon.build(str(self.tmp_path / path))["tasks"]
+            tasks = discover.build(str(self.tmp_path / path))["tasks"]
             self.assertEqual([(t["calls"], t["sub_calls"]) for t in tasks], [(1, 1)], path)
 
     def test_advisor_iterations_are_priced_on_their_own_row(self):
@@ -160,7 +161,7 @@ class TestClaudon(unittest.TestCase):
         a["message"]["usage"] = {"input_tokens": 100, "output_tokens": 50, "iterations": [
             {"type": "message", "input_tokens": 100, "output_tokens": 50},
             {"type": "advisor_message", "model": "claude-opus-5-5", "input_tokens": 1000, "output_tokens": 200}]}
-        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
+        t = discover.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
         executor, advisor = (100 * 2 + 50 * 10) / 1e6, (1000 * 4 + 200 * 20) / 1e6
         self.assertAlmostEqual(t["cost"], executor + advisor)
         self.assertAlmostEqual(t["models"]["claude-opus-5-5 (advisor)"][1], advisor)
@@ -170,16 +171,16 @@ class TestClaudon(unittest.TestCase):
     def test_fast_mode_doubles_price(self):
         a = assistant(5, "m1", model="claude-opus-5-5")
         a["message"]["usage"] = {"input_tokens": 1000, "output_tokens": 100, "speed": "fast"}
-        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
+        t = discover.build(str(self.write("p/proj/s.jsonl", [user(0, "hi"), a])))["tasks"][0]
         self.assertAlmostEqual(t["cost"], (1000 * 8 + 100 * 40) / 1e6)
         self.assertFalse(t["est"])
 
     def test_slash_commands(self):
         cmd = lambda name, args="": user(0, f"<command-message>{name}</command-message>\n<command-name>/{name}</command-name>"
                                             + (f"\n<command-args>{args}</command-args>" if args else ""))
-        self.assertIsNone(claudon.prompt_text(cmd("plugin")))         # local-only, any tag order
-        self.assertEqual(claudon.prompt_text(cmd("review", " PR 12 ")), "/review PR 12")
-        self.assertEqual(claudon.prompt_text(cmd("init")), "/init")
+        self.assertIsNone(transcript.prompt_text(cmd("plugin")))         # local-only, any tag order
+        self.assertEqual(transcript.prompt_text(cmd("review", " PR 12 ")), "/review PR 12")
+        self.assertEqual(transcript.prompt_text(cmd("init")), "/init")
 
     def test_hostile_inputs(self):
         cases = {
@@ -191,15 +192,15 @@ class TestClaudon(unittest.TestCase):
         for name, (first, prompt) in cases.items():
             with self.subTest(name):
                 lines = [first] + ([] if name != "nan record dropped" else [user(0, "hi")]) + [assistant(5, "m1")]
-                data = claudon.build(str(self.write(f"{name}/proj/s.jsonl", lines)))
+                data = discover.build(str(self.write(f"{name}/proj/s.jsonl", lines)))
                 self.assertEqual(data["tasks"][0]["prompt"], prompt)
-                html = claudon.render_html(data)
+                html = render.render_html(data)
                 payload = html.split('<script id="d" type="application/json">', 1)[1].split("</script>", 1)[0]
                 json.loads(payload, parse_constant=strict_json)    # browsers' JSON.parse rejects NaN/Infinity
 
     def test_bad_numbers_and_single_record_tasks(self):
         a = assistant(5, "m1"); a["message"]["usage"] = {"input_tokens": -10**6, "output_tokens": "5"}
-        t = claudon.build(str(self.write("p/proj/s.jsonl", [user(5, "hi"), a])))["tasks"][0]
+        t = discover.build(str(self.write("p/proj/s.jsonl", [user(5, "hi"), a])))["tasks"][0]
         self.assertEqual(t["cost"], 0)
         self.assertGreater(t["wall"], 0)
 
@@ -207,19 +208,19 @@ class TestClaudon(unittest.TestCase):
         self.write("p/proj/good.jsonl", [user(0, "hi"), assistant(5, "m1")])
         (self.tmp_path / "p/proj/dir.jsonl").mkdir()
         self.write("p/proj/bad.jsonl", [user(0, "x"), assistant(5, "m2")])
-        real = claudon.analyze_session
+        real = discover.analyze_session
         def flaky(sid, *a):
             if sid == "bad":
                 raise OSError("Permission denied")
             return real(sid, *a)
-        with mock.patch.object(claudon, "analyze_session", flaky), mock.patch("sys.stderr"):
-            tasks = claudon.build(str(self.tmp_path / "p"))["tasks"]
+        with mock.patch.object(discover, "analyze_session", flaky), mock.patch("sys.stderr"):
+            tasks = discover.build(str(self.tmp_path / "p"))["tasks"]
         self.assertEqual([t["sid"] for t in tasks], ["good"])
 
     def test_same_session_id_in_two_projects_gets_distinct_task_ids(self):
         for proj in ("projA", "projB"):
             self.write(f"p/{proj}/s1.jsonl", [user(0, proj), assistant(5, f"m-{proj}")])
-        ids = [t["id"] for t in claudon.build(str(self.tmp_path / "p"))["tasks"]]
+        ids = [t["id"] for t in discover.build(str(self.tmp_path / "p"))["tasks"]]
         self.assertEqual(len(set(ids)), 2)
 
     def test_shared_history_credited_to_original_not_copy(self):
@@ -229,13 +230,13 @@ class TestClaudon(unittest.TestCase):
         copy = self.write("p/proj/22222222-bbbb.jsonl",
                           copied + [dict(user(10, "new"), sessionId="22222222-bbbb"), dict(assistant(15, "own"), sessionId="22222222-bbbb")])
         os.utime(copy, (0, 0))                           # copy looks older, as after cp or a browser upload
-        calls = {t["sid"]: t["calls"] for t in claudon.build(str(self.tmp_path / "p"))["tasks"]}
+        calls = {t["sid"]: t["calls"] for t in discover.build(str(self.tmp_path / "p"))["tasks"]}
         self.assertEqual(calls, {orig: 1, "22222222-bbbb": 1})
 
     def test_install_plugin_honours_claude_config_dir(self):
         cfg = self.tmp_path / "cfg"
         with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(cfg)}):
-            claudon.install_plugin()
+            cli.install_plugin()
         self.assertTrue((cfg / "commands" / "claudon.md").exists())
 
     def test_build_and_redact(self):
@@ -262,23 +263,23 @@ class TestClaudon(unittest.TestCase):
             for rec in sample_records:
                 f.write(json.dumps(rec) + "\n")
 
-        data = claudon.build(str(session_file))
+        data = discover.build(str(session_file))
         self.assertIn("tasks", data)
         self.assertGreater(len(data["tasks"]), 0)
 
         # Test redact
-        claudon.redact(data)
+        redact(data)
         self.assertEqual(data["root"], "(redacted)")
 
     def test_render_html_escapes_script_close(self):
         data = {"tasks": [{"prompt": "fix </script><img src=x onerror=alert(1)>"}]}
-        html = claudon.render_html(data)
+        html = render.render_html(data)
         payload = html.split('<script id="d" type="application/json">', 1)[1].split("</script>", 1)[0]
         self.assertEqual(json.loads(payload), data)
 
     def test_infenia_attribution_in_template(self):
-        self.assertIn("Infenia Private Limited", claudon.TEMPLATE)
-        self.assertIn("MIT License", claudon.TEMPLATE)
+        self.assertIn("Infenia Private Limited", render.TEMPLATE)
+        self.assertIn("MIT License", render.TEMPLATE)
 
 
 if __name__ == "__main__":

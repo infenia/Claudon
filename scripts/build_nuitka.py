@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build script to compile claudon.py into a native standalone executable using Nuitka.
+"""Build script to compile the claudon package into a native standalone executable using Nuitka.
 
 Usage:
     python scripts/build_nuitka.py [--onefile | --standalone] [--output-dir DIST_DIR] [NUITKA_OPTION ...]
@@ -10,7 +10,9 @@ import sys
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-TARGET_SCRIPT = ROOT_DIR / "claudon.py"
+# Nuitka compiles a script, not a package: a one-line stub imports the claudon package, which is bundled with its dashboard.html.
+TARGET_SCRIPT = ROOT_DIR / "scripts" / "nuitka_entry.py"
+BIN_NAME = "claudon.exe" if sys.platform == "win32" else "claudon.bin"
 
 
 def check_nuitka():
@@ -40,6 +42,9 @@ def build_nuitka(onefile=True, output_dir=None, extra_args=None):
         "nuitka",
         "--assume-yes-for-downloads",
         f"--output-dir={output_dir}",
+        f"--output-filename={BIN_NAME}",
+        "--include-package=claudon",
+        "--include-package-data=claudon",
     ]
 
     if onefile:
@@ -63,7 +68,7 @@ def build_nuitka(onefile=True, output_dir=None, extra_args=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compile claudon.py using Nuitka.",
+    parser = argparse.ArgumentParser(description="Compile the claudon package using Nuitka.",
                                      epilog="Unrecognised options are passed through to Nuitka.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--onefile", dest="onefile", action="store_true", default=True,

@@ -167,7 +167,7 @@
       <div class="privacy">
         <strong>🔒 Nothing is uploaded.</strong> Your files are read by your browser and analyzed on this computer
         (Python compiled to WebAssembly). The page's only network requests download the Python runtime from jsDelivr
-        and <code>claudon.py</code>; once it says <em>Ready</em> you can even disconnect from the network.
+        and <code>claudon.pyz</code>; once it says <em>Ready</em> you can even disconnect from the network.
         Check it yourself in your browser's developer tools (Network tab).
         <span id="folder-note"><br>If your browser asks to <em>"upload"</em> files when you open a folder, that is its
         generic wording for letting this page read them; nothing is sent anywhere.</span>
@@ -187,12 +187,12 @@
   </main>
 
   <footer>
-    Your transcripts are processed locally and never uploaded; the only downloads are the Python runtime (jsDelivr) and claudon.py.
+    Your transcripts are processed locally and never uploaded; the only downloads are the Python runtime (jsDelivr) and claudon.pyz.
   </footer>
 
   <script>
     const ROOT = '/home/pyodide/transcripts';
-    const SERVE_HINT = 'Serve the repository over HTTP, e.g. run "python3 -m http.server" in the repo root ' +
+    const SERVE_HINT = 'Build the bundle with "python3 scripts/build_zipapp.py", then serve the repository over HTTP, e.g. "python3 -m http.server" in the repo root ' +
       'and open http://localhost:8000/wasm/';
     const READY = 'Ready. Open your transcript files; they stay on this computer.';
     let ready = false, busy = false;
@@ -222,7 +222,7 @@
           ready = true;
           statusEl.textContent = READY;
         } else if (msg.type === 'fatal') {
-          statusEl.textContent = `Could not load claudon.py or the Python runtime (${msg.message}). ${SERVE_HINT}`;
+          statusEl.textContent = `Could not load claudon.pyz or the Python runtime (${msg.message}). ${SERVE_HINT}`;
         } else if (msg.type === 'status') {
           statusEl.textContent = msg.text;
         } else if (msg.type === 'error') {

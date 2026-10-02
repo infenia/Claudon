@@ -12,7 +12,7 @@ except ImportError:
 # Add root directory to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import claudon
+from claudon import discover, render
 
 
 @unittest.skipUnless(PLAYWRIGHT_AVAILABLE, "Playwright is not installed")
@@ -94,8 +94,8 @@ class TestClaudonUI(unittest.TestCase):
             for rec in sample_records:
                 f.write(json.dumps(rec) + "\n")
 
-        data = claudon.build(str(self.tmp_path))
-        html_content = claudon.render_html(data)
+        data = discover.build(str(self.tmp_path))
+        html_content = render.render_html(data)
 
         self.report_path = self.tmp_path / "report.html"
         self.report_path.write_text(html_content, encoding="utf-8")
@@ -290,7 +290,7 @@ class TestClaudonUI(unittest.TestCase):
         f.parent.mkdir(parents=True)
         f.write_text("".join(json.dumps(r) + "\n" for r in recs), encoding="utf-8")
         report = self.tmp_path / "many.html"
-        report.write_text(claudon.render_html(claudon.build(str(f))), encoding="utf-8")
+        report.write_text(render.render_html(discover.build(str(f))), encoding="utf-8")
         self.page.goto(report.as_uri())
         self.page.click("nav button:text-is('Models & thinking')")
         card = self.page.locator(".card", has=self.page.locator("h2", has_text="Most thinking-heavy tasks"))

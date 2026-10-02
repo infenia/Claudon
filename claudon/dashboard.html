@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claudon</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1c2330;--mute:#6b7585;--line:#e3e6ec;--model:#3b82f6;--think:#8b5cf6;--tool:#f59e0b;--agent:#14b8a6;--user:#ec4899;--wait:#cbd2dc;--err:#ef4444;--ok:#10b981}
+@media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--fg:#e6e9ef;--mute:#8d97a8;--line:#272d3a;--wait:#3a4252}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+h1{font-size:16px;margin:0 8px 0 0}nav button,select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 11px}
+nav button{cursor:pointer}nav button.on{background:var(--model);border-color:var(--model);color:#fff}
+main{padding:20px;max-width:1500px;margin:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
+.grid .card{margin:0}.k{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}.v{font-size:24px;font-weight:600}.s{color:var(--mute);font-size:12px}
+h2{font-size:14px;margin:0 0 10px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px}
+table{border-collapse:collapse;width:100%}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{color:var(--mute);font-weight:500;font-size:12px;cursor:pointer;white-space:nowrap;user-select:none}th:hover{color:var(--fg)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer}tr.c:hover{background:var(--bg)}
+.pr{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--wait);min-width:110px}.bar i{display:block}
+.m{background:var(--model)}.th{background:var(--think)}.t{background:var(--tool)}.a{background:var(--agent)}.u{background:var(--user)}.w{background:var(--wait)}.e{background:var(--err)}
+.leg span{margin-right:14px;font-size:12px;color:var(--mute)}.leg b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.hb{height:8px;background:var(--model);border-radius:4px;min-width:1px}
+.days{display:flex;align-items:flex-end;gap:2px;height:110px}.days div{flex:1;background:var(--model);min-width:2px;border-radius:2px 2px 0 0}
+.find{border-left:4px solid var(--tool);padding:6px 12px;margin:10px 0;background:var(--bg);border-radius:0 6px 6px 0}.find.hi{border-color:var(--err)}.find.lo{border-color:var(--model)}
+.find b{display:block}.chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
+#modal{position:fixed;inset:0;background:#0008;display:none;z-index:10;overflow:auto;padding:30px}#modal>div{background:var(--card);max-width:1200px;margin:auto;border-radius:12px;padding:20px;position:relative}
+#x{position:absolute;right:14px;top:10px;cursor:pointer;font-size:22px;line-height:1;color:var(--mute);background:none;border:0;padding:4px 8px;border-radius:6px}#x:hover{background:var(--bg);color:var(--text,inherit)}
+.gantt{position:relative;border:1px solid var(--line);border-radius:6px;margin:8px 0 4px;background:var(--bg)}.lane{position:relative;height:24px;border-bottom:1px dashed var(--line)}
+.lane:last-child{border:0}.lane span{position:absolute;top:3px;height:18px;border-radius:3px;min-width:2px;opacity:.9}.lane label{position:absolute;left:4px;top:4px;font-size:11px;color:var(--mute);z-index:1;pointer-events:none}
+.axis{display:flex;justify-content:space-between;color:var(--mute);font-size:11px}.pre{white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:6px;max-height:160px;overflow:auto;font-size:12px}
+footer{color:var(--mute);font-size:12px;line-height:1.5;padding:16px 20px 40px;max-width:1500px;margin:auto;border-top:1px solid var(--line)}
+footer .meta{margin-bottom:12px}footer .notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px 28px}
+footer .notes>div>b:first-child{display:block;color:var(--fg);font-size:12px;margin-bottom:2px}footer b{color:var(--fg);font-weight:600}
+footer details{margin-top:14px}footer summary{cursor:pointer;color:var(--fg)}footer details table{width:auto;margin-top:8px}footer details th,footer details td{font-size:12px;padding:3px 12px 3px 0;cursor:default}code{background:var(--bg);padding:1px 5px;border-radius:4px}
+.more{display:flex;gap:8px;align-items:center;margin-top:8px}.more button{font:inherit;font-size:12px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 10px;cursor:pointer}.more button:hover{border-color:var(--model)}
+.tip{color:var(--mute);cursor:help;border-bottom:1px dotted}
+</style></head><body>
+<header><h1>Claudon</h1>
+<nav id="nav"></nav><span style="flex:1"></span>
+<select id="fp"></select><input id="fq" placeholder="search prompts…" size="22"></header>
+<main id="view"></main><div id="modal" role="dialog" aria-modal="true"><div><button id="x" aria-label="Close (Esc)" title="Close (Esc)">×</button><div id="mbody"></div></div></div>
+<footer id="foot"></footer>
+<script id="d" type="application/json">__DATA__</script>
+<script>
+window.onerror=(m,u,l)=>{const e=document.createElement('pre');e.style.cssText='color:#c00;padding:16px';e.textContent='Dashboard error: '+m+' (line '+l+')';document.body.prepend(e)};
+const D=JSON.parse(document.getElementById('d').textContent);
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const T=s=>{s=Math.round(s);if(s<60)return s+'s';const m=Math.floor(s/60);if(m<60)return m+'m '+s%60+'s';return Math.floor(m/60)+'h '+m%60+'m'};
+const N=n=>n>=1e9?(n/1e9).toFixed(2)+'B':n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(Math.round(n));
+const $$=n=>'$'+(n>=100?n.toFixed(0):n.toFixed(2)),P=x=>isFinite(x)?(x*100).toFixed(0)+'%':'–';
+const sum=(a,f)=>a.reduce((s,x)=>s+f(x),0);
+const Q=(a,p)=>{if(!a.length)return 0;a=[...a].sort((x,y)=>x-y);return a[Math.min(a.length-1,Math.floor(p*a.length))]};
+const date=t=>new Date(t*1000).toISOString().slice(0,10);
+const sn=m=>m.replace('claude-','').replace(/-20\d{6}$/,'');
+const tabs=['Overview','Tasks','Tools','Models & thinking','Bottlenecks'];let cur,tab=0,sorts={},F=[];
+$('#nav').innerHTML=tabs.map((t,i)=>`<button data-t="${i}">${t}</button>`).join('');
+const projs=[...new Set(D.tasks.map(t=>t.proj))].sort();
+$('#fp').innerHTML='<option value="">All projects ('+projs.length+')</option>'+projs.map(p=>`<option>${esc(p)}</option>`).join('');
+function filt(){const p=$('#fp').value,q=$('#fq').value.toLowerCase();F=D.tasks.filter(t=>(!p||t.proj==p)&&(!q||(t.prompt+t.title).toLowerCase().includes(q)))}
+const bar=t=>{const w=t.wall||1,seg=(k,c)=>`<i class="${c}" style="width:${t[k]/w*100}%" title="${c}"></i>`;
+ return `<div class="bar" title="model ${T(t.model_s)} · tools ${T(t.tool_s)} · subagent ${T(t.agent_s)} · user ${T(t.user_s)} · idle ${T(t.wait_s)}">${seg('model_s','m')}${seg('tool_s','t')}${seg('agent_s','a')}${seg('user_s','u')}</div>`};
+const legend='<div class="leg"><span><b class="m"></b>model</span><span><b class="th"></b>thinking</span><span><b class="t"></b>tools</span><span><b class="a"></b>subagent wait</span><span><b class="u"></b>user prompts</span><span><b class="w"></b>idle / waiting</span></div>';
+const shown={};   // table id -> rows currently shown ("show more" grows it by the table's page size)
+function tbl(id,cols,rows,limit=200,click){
+ const s=sorts[id]||(sorts[id]={i:cols.findIndex(c=>c.d),d:-1}),n=shown[id]||limit;
+ if(s.i>=0){const c=cols[s.i];rows=[...rows].sort((a,b)=>{const x=c.v(a),y=c.v(b);return (x>y?1:x<y?-1:0)*s.d})}
+ return `<table><tr>${cols.map((c,i)=>`<th class="${c.n?'n':''}" data-s="${id}|${i}">${c.h}${s.i==i?(s.d<0?' ▾':' ▴'):''}</th>`).join('')}</tr>`+
+ rows.slice(0,n).map(r=>`<tr class="${click?'c':''}" ${click?`data-task="${esc(click(r))}"`:''}>${cols.map(c=>`<td class="${c.n?'n':''}">${c.f(r)}</td>`).join('')}</tr>`).join('')+'</table>'+
+ (rows.length>n?`<div class="more s">showing ${n} of ${rows.length}<button data-more="${id}|${limit}">show ${Math.min(limit,rows.length-n)} more</button><button data-more="${id}|all">show all</button></div>`:'')}
+const kpi=(k,v,s='')=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+const A=a=>({wall:sum(a,t=>t.wall),model:sum(a,t=>t.model_s),tool:sum(a,t=>t.tool_s),agent:sum(a,t=>t.agent_s),user:sum(a,t=>t.user_s),wait:sum(a,t=>t.wait_s),
+ calls:sum(a,t=>t.calls),sub:sum(a,t=>t.sub_calls),tools:sum(a,t=>t.tools),cost:sum(a,t=>t.cost),think:sum(a,t=>t.think_s),thinkTok:sum(a,t=>t.think_tok),
+ out:sum(a,t=>t.out_tok),inp:sum(a,t=>t.in_tok),cr:sum(a,t=>t.cr_tok),cc:sum(a,t=>t.cc_tok)});
+function toolAgg(a){const m=Object.create(null);a.forEach(t=>Object.entries(t.tool_stats).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0]);x[1]+=v[0];x[2]+=v[1];x[3]+=v[2];x[4]=Math.max(x[4],v[3]);x[5]+=v[4]}));return Object.values(m)}
+function modelAgg(a){const m=Object.create(null);a.forEach(t=>Object.entries(t.models).forEach(([k,v])=>{const x=m[k]||(m[k]=[k,0,0,0,0,0,0,0,0,0]);for(let i=0;i<9;i++)x[i+1]+=v[i]}));return Object.values(m)}
+
+function overview(){const a=A(F),sess=new Set(F.map(t=>t.sid)).size,cacheHit=a.cr/Math.max(1,a.cr+a.inp+a.cc);
+ const days={};F.forEach(t=>days[date(t.start)]=(days[date(t.start)]||0)+t.cost);const dk=Object.keys(days).sort(),mx=Math.max(...Object.values(days),.01);
+ const dist=(h,f,fmt)=>`<tr><td>${h}</td><td class="n">${fmt(Q(F.map(f),.5))}</td><td class="n">${fmt(Q(F.map(f),.9))}</td><td class="n">${fmt(Q(F.map(f),1))}</td></tr>`;
+ const byP=Object.create(null);F.forEach(t=>(byP[t.proj]=byP[t.proj]||[]).push(t));
+ return `<div class="grid">${kpi('Tasks',F.length,sess+' sessions')}${kpi('API turns',N(a.calls),N(a.sub)+' by subagents')}${kpi('Tool calls',N(a.tools))}
+ ${kpi('Wall time',T(a.wall),'sum over tasks')}${kpi('Model time',T(a.model),P(a.model/a.wall)+' of wall')}${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time')}
+ ${kpi('Est. cost',$$(a.cost),$$(a.cost/F.length)+' / task')}${kpi('Output tokens',N(a.out),'thinking '+N(a.thinkTok)+' (where reported)')}${kpi('Cache hit',P(cacheHit),'of input-side tokens')}</div>
+ <div class="card"><h2>Where the wall-clock time goes</h2>${bar({wall:a.wall,model_s:a.model,tool_s:a.tool,agent_s:a.agent,user_s:a.user,wait_s:a.wait})}<div style="height:8px"></div>${legend}
+ <div class="s" style="margin-top:6px">model ${T(a.model)} (${P(a.model/a.wall)}) · tools ${T(a.tool)} (${P(a.tool/a.wall)}) · subagent wait ${T(a.agent)} · user prompts ${T(a.user)} · idle ${T(a.wait)} (${P(a.wait/a.wall)})</div></div>
+ <div class="cols"><div class="card"><h2>Per-task distribution</h2><table><tr><th></th><th class="n">median</th><th class="n">p90</th><th class="n">max</th></tr>
+ ${dist('API turns',t=>t.calls,N)}${dist('Tool calls',t=>t.tools,N)}${dist('Wall time',t=>t.wall,T)}${dist('Thinking time',t=>t.think_s,T)}${dist('Cost',t=>t.cost,$$)}${dist('Peak context',t=>t.ctx_max,N)}</table></div>
+ <div class="card"><h2>Cost per day</h2><div class="days">${dk.map(d=>`<div title="${d}: ${$$(days[d])}" style="height:${days[d]/mx*100}%"></div>`).join('')}</div><div class="axis"><span>${dk[0]}</span><span>${dk.at(-1)}</span></div></div></div>
+ <div class="cols"><div class="card"><h2>Cost by project</h2>${tbl('proj',[{h:'Project',f:r=>esc(r[0]),v:r=>r[0]},{h:'Tasks',n:1,f:r=>r[1],v:r=>r[1]},{h:'Wall',n:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Cost',n:1,d:1,f:r=>$$(r[2]),v:r=>r[2]}],Object.entries(byP).map(([k,v])=>[k,v.length,sum(v,t=>t.cost),sum(v,t=>t.wall)]),15)}</div>
+ <div class="card"><h2>Token cost mix</h2>${costMix()}</div></div>`}
+function costMix(){const r=[0,1,2,3].map(i=>sum(F,t=>t.cost_mix[i])),tot=sum(r,x=>x)||1;  // [fresh in, out, cache read, cache write] $
+ return [['Output',r[1]],['Cache read',r[2]],['Cache write',r[3]],['Fresh input',r[0]]].map(([k,v])=>`<div style="display:flex;gap:10px;align-items:center;margin:6px 0"><span style="width:90px">${k}</span><div class="hb" style="width:${v/tot*60}%"></div><span class="s">${P(v/tot)}</span></div>`).join('')}
+
+function tasksView(){return `<div class="card">${legend}<div style="height:8px"></div>`+tbl('tasks',[
+ {h:'Date',f:t=>date(t.start),v:t=>t.start,d:1},{h:'Project',f:t=>esc(t.proj),v:t=>t.proj},{h:'Task',f:t=>`<div class="pr" title="${esc(t.prompt)}">${esc(t.prompt)}</div>`,v:t=>t.prompt},
+ {h:'Wall',n:1,f:t=>T(t.wall),v:t=>t.wall},{h:'<span class="tip" title="API round-trips by the main agent">Turns</span>',n:1,f:t=>t.calls+(t.sub_calls?` <span class="s">+${t.sub_calls}</span>`:''),v:t=>t.calls},
+ {h:'Tools',n:1,f:t=>t.tools,v:t=>t.tools},{h:'Think',n:1,f:t=>T(t.think_s),v:t=>t.think_s},{h:'Think tok',n:1,f:t=>N(t.think_tok),v:t=>t.think_tok},
+ {h:'Time split',f:bar,v:t=>t.wait_s/t.wall},{h:'Peak ctx',n:1,f:t=>N(t.ctx_max),v:t=>t.ctx_max},{h:'Cost',n:1,f:t=>$$(t.cost)+(t.est?'*':''),v:t=>t.cost}],F,300,t=>t.id)+'</div>'}
+
+function toolsView(){const rows=toolAgg(F),tot=sum(rows,r=>r[3])||1,mx=Math.max(...rows.map(r=>r[3]),1);
+ const slow=F.flatMap(t=>t.slow.map(s=>[...s,t])).sort((a,b)=>b[1]-a[1]);
+ return `<div class="card"><h2>Tools by total time</h2>`+tbl('tools',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>N(r[1]),v:r=>r[1]},{h:'Errors',n:1,f:r=>r[2]?`${r[2]} <span class="s">(${P(r[2]/r[1])})</span>`:'–',v:r=>r[2]/r[1]},
+ {h:'Total time',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'',f:r=>`<div class="hb t" style="width:${r[3]/mx*100}%"></div>`,v:r=>r[3]},{h:'Avg',n:1,f:r=>(r[3]/r[1]).toFixed(1)+'s',v:r=>r[3]/r[1]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]},{h:'<span class="tip" title="calls the user rejected or interrupted; not counted as errors">Rejected</span>',n:1,f:r=>r[5]||'–',v:r=>r[5]},{h:'% of tool time',n:1,f:r=>P(r[3]/tot),v:r=>r[3]}],rows,60)+
+ `<div class="s">Tool duration = tool_use → tool_result timestamps, so it includes time spent waiting on permission prompts. Subagent (Task/Agent) calls are counted here but painted separately in the time split.</div></div>
+ <div class="card"><h2>Slowest individual calls</h2>`+tbl('slow',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Duration',n:1,d:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr">${esc(r[2])}</div>`,v:r=>r[2]},{h:'Err',f:r=>r[3]?'✗':'',v:r=>r[3]},{h:'Task',f:r=>`<span class="chip" data-task="${esc(r[4].id)}">${esc(r[4].prompt.slice(0,50))}</span>`,v:r=>r[4].prompt}],slow,25)+'</div>'}
+
+function modelsView(){const rows=modelAgg(F),a=A(F);
+ return `<div class="card"><h2>Models</h2>`+tbl('models',[{h:'Model',f:r=>esc(sn(r[0])),v:r=>r[0]},{h:'Calls',n:1,f:r=>N(r[1]),v:r=>r[1]},{h:'Cost',n:1,d:1,f:r=>$$(r[2]),v:r=>r[2]},{h:'Output tok',n:1,f:r=>N(r[3]),v:r=>r[3]},
+ {h:'Thinking tok',n:1,f:r=>N(r[4]),v:r=>r[4]},{h:'Avg call',n:1,f:r=>(r[5]/r[1]).toFixed(1)+'s',v:r=>r[5]/r[1]},{h:'Out tok/s',n:1,f:r=>r[5]?(r[3]/r[5]).toFixed(0):'–',v:r=>r[3]/r[5]},
+ {h:'Thinking time',n:1,f:r=>T(r[6]),v:r=>r[6]},{h:'Think / call time',n:1,f:r=>P(r[6]/Math.max(.1,r[5])),v:r=>r[6]/r[5]},{h:'Fresh in',n:1,f:r=>N(r[7]),v:r=>r[7]},{h:'Cache read',n:1,f:r=>N(r[8]),v:r=>r[8]},{h:'Cache write',n:1,f:r=>N(r[9]),v:r=>r[9]}],rows)+'</div>'+
+ `<div class="card"><h2>Thinking</h2><div class="grid" style="margin:0">${kpi('Thinking time',T(a.think),P(a.think/Math.max(1,a.model))+' of model time')}${kpi('Thinking tokens',N(a.thinkTok),P(a.thinkTok/Math.max(1,a.out))+' of output (where reported)')}
+ ${kpi('Calls with thinking',N(sum(F,t=>t.think_calls)),P(sum(F,t=>t.think_calls)/Math.max(1,a.calls+a.sub))+' of calls')}</div>
+ <div class="s" style="margin-top:8px">Thinking text is redacted in the transcripts, so thinking time is measured as the gap between a request and its thinking block being written; tokens come from <code>usage.output_tokens_details.thinking_tokens</code> when the log has it.</div>
+ <h2 style="margin-top:14px">Most thinking-heavy tasks</h2>`+tbl('think',[{h:'Task',f:t=>`<div class="pr">${esc(t.prompt)}</div>`,v:t=>t.prompt},{h:'Think time',n:1,d:1,f:t=>T(t.think_s),v:t=>t.think_s},{h:'% of model time',n:1,f:t=>P(t.think_s/Math.max(1,t.model_s)),v:t=>t.think_s/Math.max(1,t.model_s)},{h:'Think tok',n:1,f:t=>N(t.think_tok),v:t=>t.think_tok},{h:'Wall',n:1,f:t=>T(t.wall),v:t=>t.wall}],F,15,t=>t.id)+'</div>'}
+
+function bottlenecks(){const a=A(F),out=[],ids=(l,n=6)=>l.slice(0,n).map(t=>t.id),top=(f,n=5)=>[...F].sort((x,y)=>f(y)-f(x)).slice(0,n);
+ const cats=[['model inference',a.model],['tool execution',a.tool],['subagent waits',a.agent],['idle / waiting',a.wait]].sort((x,y)=>y[1]-x[1]);
+ out.push(['lo',`Biggest time sink: ${cats[0][0]} (${P(cats[0][1]/a.wall)} of wall time)`,`Breakdown: ${cats.map(c=>c[0]+' '+P(c[1]/a.wall)).join(' · ')}.`,[]]);
+ const idle=F.filter(t=>t.wall>60&&t.wait_s/t.wall>.4);if(idle.length)out.push(['hi',`${idle.length} tasks were mostly idle (>40% of time with no model or tool activity)`,`Typically permission prompts, a person reading, background jobs, or hook/startup latency. Total idle ${T(sum(idle,t=>t.wait_s))}. Worst offenders:`,ids(top(t=>t.wait_s).filter(t=>idle.includes(t)))]);
+ const tr=toolAgg(F).sort((x,y)=>y[3]-x[3]);if(tr.length)out.push(['',`Slowest tool category: ${tr[0][0]} — ${T(tr[0][3])} total (${P(tr[0][3]/Math.max(1,a.tool+a.agent))} of tool time)`,`Avg ${(tr[0][3]/tr[0][1]).toFixed(1)}s over ${tr[0][1]} calls, max ${T(tr[0][4])}. Next: ${tr.slice(1,4).map(r=>r[0]+' '+T(r[3])).join(', ')}.`,[]]);
+ const bad=toolAgg(F).filter(r=>r[1]>=8&&r[2]/r[1]>.15).sort((x,y)=>y[2]/y[1]-x[2]/x[1]);if(bad.length)out.push(['hi','Tools with high failure rates (retry churn)',bad.slice(0,5).map(r=>`${r[0]}: ${r[2]}/${r[1]} failed (${P(r[2]/r[1])})`).join(' · ')+'. Each failure usually costs another full model round-trip.',ids(top(t=>sum(Object.values(t.tool_stats),v=>v[1]))) ]);
+ const big=F.filter(t=>t.ctx_max>400000);if(big.length)out.push(['hi',`${big.length} tasks grew context past 400k tokens`,`Every extra turn re-reads the whole context (cache reads) — these tasks cost ${$$(sum(big,t=>t.cost))} (${P(sum(big,t=>t.cost)/a.cost)} of spend). Compact or split them earlier.`,ids(top(t=>t.ctx_max).filter(t=>big.includes(t)))]);
+ const th=F.filter(t=>t.model_s>30&&t.think_s/t.model_s>.35);if(th.length)out.push(['',`${th.length} tasks spent >35% of model time thinking`,`Total ${T(sum(th,t=>t.think_s))}. Lowering effort level or giving more precise prompts would shorten these.`,ids(top(t=>t.think_s).filter(t=>th.includes(t)))]);
+ const many=top(t=>t.calls);out.push(['',`Most turns for a single task: ${many[0].calls} API round-trips`,`Median task takes ${Q(F.map(t=>t.calls),.5)} turns, p90 ${Q(F.map(t=>t.calls),.9)}. Long tails usually mean exploration loops or rework.`,ids(many)]);
+ const cmp=sum(F,t=>t.compacts.length);if(cmp)out.push(['',`${cmp} context compactions`,`Total compaction time ${T(sum(F,t=>sum(t.compacts,c=>c[1])))}; each one discards history the agent may need to re-read.`,ids(F.filter(t=>t.compacts.length))]);
+ const sorted=[...F].sort((x,y)=>y.cost-x.cost),k=Math.max(1,Math.ceil(F.length*.05)),topc=sum(sorted.slice(0,k),t=>t.cost);
+ out.push(['',`Cost is concentrated: top ${k} task${k>1?'s':''} (5%) = ${P(topc/a.cost)} of spend`,`${$$(topc)} of ${$$(a.cost)}.`,ids(sorted)]);
+ const slow=top(t=>t.wall);out.push(['',`Longest tasks by wall time`,'',ids(slow)]);
+ return `<div class="card"><h2>Automatic findings</h2>`+out.map(([c,h,b,l])=>`<div class="find ${c}"><b>${esc(h)}</b>${esc(b)}<div>${l.map(id=>{const t=D.tasks.find(x=>x.id==id);return `<span class="chip" data-task="${esc(id)}">${esc(t.prompt.slice(0,45))} · ${T(t.wall)} · ${$$(t.cost)}</span>`}).join('')}</div></div>`).join('')+'</div>'}
+
+function detail(id){const t=D.tasks.find(x=>x.id==id),w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
+ const lanes=['model','tools','subagent'].map((n,i)=>`<div class="lane"><label>${n}</label>`+t.segs.filter(s=>i==0?s[0]=='m':i==1?(s[0]=='t'||s[0]=='te'):(s[0]=='ms'||s[0]=='ts')).map(s=>{
+  const col=s[0]=='te'?'e':(s[0]=='m'||s[0]=='ms')?'m':s[0]=='ts'?'a':'t',extra=s[0][0]=='m'?`${esc(sn(s[3]))} · ${s[5]} out tok · think ${T(s[4])}`:esc(s[3]+': '+s[4]);
+  const th=s[0][0]=='m'&&s[4]>0?`<span class="th" style="left:${pc(s[1])};width:${pc(Math.min(s[4],s[2]))}" title="thinking ${T(s[4])}"></span>`:'';
+  return `<span class="${col}" style="left:${pc(s[1])};width:${pc(s[2])}" title="${T(s[2])} — ${extra}"></span>${th}`}).join('')+'</div>').join('');
+ const ctxMax=Math.max(...t.ctx.map(c=>c[1]),1),svg=t.ctx.length>1?`<svg viewBox="0 0 400 60" width="100%" height="60" preserveAspectRatio="none"><polyline fill="none" stroke="var(--model)" stroke-width="1.5" points="${t.ctx.map(c=>`${c[0]/w*400},${58-c[1]/ctxMax*54}`).join(' ')}"/></svg>`:'';
+ const trows=Object.entries(t.tool_stats).map(([k,v])=>[k,...v]);
+ return `<h2 style="font-size:16px">${esc(t.title||'Task')} <span class="s">· ${esc(t.proj)} · ${new Date(t.start*1000).toLocaleString()} · ${esc(t.id)}</span></h2><div class="pre">${esc(t.prompt)}</div>
+ <div class="grid" style="margin:12px 0">${kpi('Wall',T(w))}${kpi('Turns',t.calls,t.sub_calls+' subagent calls')}${kpi('Tool calls',t.tools)}${kpi('Thinking',T(t.think_s),N(t.think_tok)+' tok')}${kpi('Cost',$$(t.cost)+(t.est?'*':''),'subagents '+$$(t.sub_cost))}${kpi('Peak context',N(t.ctx_max),t.compacts.length+' compactions')}</div>
+ ${bar(t)}<div style="height:6px"></div>${legend}<h2 style="margin-top:14px">Timeline <span class="s">(purple = thinking portion of a model call, red = failed tool)</span></h2><div class="gantt">${lanes}</div><div class="axis">${[0,.25,.5,.75,1].map(f=>`<span>${T(w*f)}</span>`).join('')}</div>
+ <div class="cols" style="margin-top:14px"><div><h2>Tools in this task</h2>${tbl('dt',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>r[1],v:r=>r[1]},{h:'Err',n:1,f:r=>r[2],v:r=>r[2]},{h:'Total',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]}],trows,20)}</div>
+ <div><h2>Tool calls, slowest first</h2>${tbl('ds',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Dur',n:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr" style="max-width:300px">${esc(r[2])}</div>`,v:r=>r[2]}],t.slow,10)}
+ <h2 style="margin-top:12px">Context size per turn</h2>${svg}<div class="s">peak ${N(t.ctx_max)} tokens</div></div></div>`}
+
+const views=[overview,tasksView,toolsView,modelsView,bottlenecks];
+function render(){filt();document.querySelectorAll('#nav button').forEach((b,i)=>b.classList.toggle('on',i==tab));
+ $('#view').innerHTML=F.length?views[tab]():'<div class="card">No tasks match.</div>'}
+const pl=(n,w)=>`${N(n)} ${w}${n==1?'':'s'}`;
+const rates=Object.entries(D.price).sort(([a],[b])=>a.localeCompare(b)).map(([k,p])=>`<tr><td><code>${esc(k)}</code></td>${p.map(x=>`<td class="n">${x}</td>`).join('')}</tr>`).join('');
+$('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).toLocaleString())} from <code>${esc(D.root)}</code> · ${pl(D.files,'file')} · ${pl(D.sessions.length,'session')} · Developed by <b>Infenia Private Limited</b> under the MIT License</div>
+ <div class="notes">
+  <div><b>Definitions</b>A <b>task</b> is one human prompt through the last activity before the next prompt; a <b>turn</b> is one model API call. Subagent transcripts count toward the task that was running when they started.</div>
+  <div><b>Time split</b>Interval union (model › tools › subagent › user tools), so parallel work is not double counted. <i>Idle</i> is time with no model or tool activity.</div>
+  <div><b>Costs</b>Estimates: token usage × the rates below; <code>*</code> marks tasks that include models with unknown pricing. On real transcripts they land at a median ~95% of the CLI's own reported total. Advisor sub-calls and fast mode are priced; server-tool fees (e.g. web search) are not.</div>
+ </div>
+ <details><summary>Rates used ($ per million tokens; the longest key contained in the model name wins)</summary>
+  <table><tr><th>Model key</th><th class="n">Input</th><th class="n">Output</th><th class="n">Cache read</th><th class="n">Cache write 5m</th><th class="n">Cache write 1h</th></tr>${rates}</table></details>`;
+document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task],[data-more]');if(!el)return;
+ const modal=()=>{if(cur&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
+ if(el.dataset.more){const[id,step]=el.dataset.more.split('|');shown[id]=step=='all'?Infinity:(shown[id]||+step)+ +step;render();modal();return}
+ if(el.dataset.t!=null){tab=+el.dataset.t;render()}else if(el.dataset.s){const[id,i]=el.dataset.s.split('|'),s=sorts[id];s.d=s.i==+i?-s.d:-1;s.i=+i;render();modal()}
+ else{cur=el.dataset.task;delete shown.dt;delete shown.ds;$('#mbody').innerHTML=detail(cur);$('#modal').style.display='block';document.body.style.overflow='hidden';$('#modal').scrollTop=0}});
+const closeM=()=>{$('#modal').style.display='none';document.body.style.overflow=''};
+$('#x').onclick=closeM;$('#modal').onclick=e=>{if(e.target.id=='modal')closeM()};
+document.addEventListener('keydown',e=>{if(e.key=='Escape'&&$('#modal').style.display=='block')closeM()});
+$('#fp').onchange=$('#fq').oninput=()=>{for(const k in shown)delete shown[k];render()};render();  // a new filter starts tables at page 1
+</script></body></html>

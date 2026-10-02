@@ -9,20 +9,28 @@ async function text(url, init) {
   return resp.text();
 }
 
+async function bytes(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`${url}: HTTP ${resp.status}`);
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
 const ready = (async () => {
-  let source;
+  // claudon.pyz is the zipapp built by scripts/build_zipapp.py (deploy-pages.yml puts it next to this file;
+  // for local use build it into dist/ and serve the repo root)
+  let bundle;
   try {
-    source = await text('claudon.py');
+    bundle = await bytes('claudon.pyz');
   } catch (err) {
-    source = await text('../claudon.py');
+    bundle = await bytes('../dist/claudon.pyz');
   }
   // importScripts() can't check SRI, so fetch with integrity and run the verified source from a blob.
   // This pins pyodide.js only; the .wasm/stdlib files it loads come unverified from the same version dir.
   const loader = await text(PYODIDE_URL + 'pyodide.js', { integrity: PYODIDE_SRI });
   importScripts(URL.createObjectURL(new Blob([loader], { type: 'text/javascript' })));
   const py = await loadPyodide({ indexURL: PYODIDE_URL });
-  py.FS.writeFile('/home/pyodide/claudon.py', source);
-  py.runPython("import sys; sys.path.insert(0, '/home/pyodide')");
+  py.FS.writeFile('/home/pyodide/claudon.pyz', bundle);
+  py.runPython("import sys; sys.path.insert(0, '/home/pyodide/claudon.pyz')");   // zipimport
   return py;
 })();
 

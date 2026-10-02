@@ -137,9 +137,13 @@ jobs:
         with:
           path: release_assets
           merge-multiple: true
-      - name: Add claudon.py (pinned installs via install.sh) and checksums
+      - name: Add claudon.pyz (installed by install.sh) and checksums
         run: |
-          cp src/claudon.py release_assets/
+          python3 src/scripts/build_zipapp.py release_assets/claudon.pyz
+          # install.sh downloads these by name: publishing without one would break installs on that platform
+          for f in claudon-linux-x86_64 claudon-macos-arm64 claudon-macos-x86_64 claudon-windows-x86_64.exe claudon.pyz; do
+            test -f "release_assets/$f" || { echo "::error::missing release asset $f"; exit 1; }
+          done
           cd release_assets && sha256sum claudon* > SHA256SUMS && cat SHA256SUMS
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:

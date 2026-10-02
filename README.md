@@ -41,7 +41,7 @@ The answers are already in `~/.claude`. Claudon reads them and shows you:
 | **How hard it thought** | thinking time vs. thinking tokens |
 | **Safe to share** | `--redact` strips prompts, paths, commands and project names |
 
-It is a single Python file using only the standard library. No telemetry, no network, no account.
+It is a small Python package using only the standard library. No telemetry, no network, no account.
 
 ---
 
@@ -77,19 +77,29 @@ claudon ~/.claude -o report.html --open
 ```bash
 curl -fsSL https://raw.githubusercontent.com/infenia/claudon/main/install.sh | sh
 
-# recommended: pin a release (see GitHub Releases); claudon.py is checked against that release's SHA256SUMS
+# recommended: pin a release (see GitHub Releases); the download is checked against that release's SHA256SUMS
 curl -fsSL https://raw.githubusercontent.com/infenia/claudon/main/install.sh | CLAUDON_VERSION=vX.Y.Z sh
 ```
 
-The checksum catches corrupted or mismatched downloads. To also prove a release file was built by this repo's
-workflow, download it and run `gh attestation verify claudon.py -R infenia/claudon`.
+The script installs the native binary for your platform (Linux x86_64, macOS arm64/Intel, Windows x86_64 via Git Bash or
+MSYS2), so **Python is not needed**. Other platforms (Linux arm64, Alpine/musl) get `claudon.pyz`, which needs Python 3.11+.
+
+On Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/infenia/claudon/main/install.ps1 | iex
+# pin a release: $env:CLAUDON_VERSION = 'vX.Y.Z' first
+```
+ The checksum catches corrupted or mismatched downloads. To
+also prove a release file was built by this repo's workflow, download it and run
+`gh attestation verify <file> -R infenia/claudon`.
 
 ### Git clone
 
 ```bash
 git clone https://github.com/infenia/claudon.git
 cd claudon
-python3 claudon.py ~/.claude -o report.html --open
+python3 -m claudon ~/.claude -o report.html --open
 ```
 
 ### Pre-releases
@@ -167,7 +177,7 @@ The report is one self-contained `.html` file: no server, no external assets.
 Everything runs on your machine. The CLI makes no network requests.
 
 The browser version uploads nothing either: files are read and analyzed locally. Its only downloads are the Pyodide
-runtime (from jsDelivr) and `claudon.py`, and once it shows *Ready* it keeps working offline. Chrome and Edge ask to
+runtime (from jsDelivr) and `claudon.pyz`, and once it shows *Ready* it keeps working offline. Chrome and Edge ask to
 let the page *view* the folder you pick. Firefox and Safari show their own "upload" prompt for folder pickers, which
 only grants the page read access.
 
@@ -180,7 +190,8 @@ release PR (version bump + [CHANGELOG](CHANGELOG.md)); merging it tags the relea
 
 - **PyPI** (trusted publishing) and **npm** (with provenance)
 - **Standalone binaries** for Linux x86_64, macOS (arm64 and Intel) and Windows, on GitHub Releases with `SHA256SUMS`
-  and build provenance attestations (`gh attestation verify <file> -R infenia/claudon`)
+  and build provenance attestations (`gh attestation verify <file> -R infenia/claudon`), plus `claudon.pyz`
+  (single-file Python bundle, used by `install.sh` where no binary exists)
 
 Full process: [docs/RELEASING.md](docs/RELEASING.md).
 
