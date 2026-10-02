@@ -172,6 +172,13 @@
         <span id="folder-note"><br>If your browser asks to <em>"upload"</em> files when you open a folder, that is its
         generic wording for letting this page read them; nothing is sent anywhere.</span>
       </div>
+      <div class="privacy">
+        <strong>✨ Optional on-device AI.</strong> The report's <em>AI summary</em> and <em>Ask AI</em> chat work
+        <strong>only if your browser supports the built-in AI APIs</strong> (Chrome 148+ for both; Chrome 138+ and
+        Edge for the summary) and your computer meets its hardware requirements. They use the browser's own model on
+        this computer. Without support they are hidden, and the rest of the report works as usual.
+        <br><span id="ai-status">Checking this browser…</span>
+      </div>
     </div>
 
     <div id="status">Downloading the Python runtime (one-time, no data is sent)...</div>
@@ -344,6 +351,27 @@
       fileInput.value = dirInput.value = '';
       generatedHtml = null;
     }
+
+    // same detection as the dashboard: which optional AI features the report will offer in this browser
+    (async () => {
+      const el = document.getElementById('ai-status');
+      const ask = async (api, o) => {
+        try {
+          if (typeof api?.availability !== 'function') return 'unavailable';
+          return await Promise.race([api.availability(o), new Promise(r => setTimeout(() => r('unknown'), 8000))]);
+        } catch { return 'unavailable'; }
+      };
+      const [lm, sm] = await Promise.all([
+        ask(self.LanguageModel, { expectedInputs: [{ type: 'text', languages: ['en'] }], expectedOutputs: [{ type: 'text', languages: ['en'] }] }),
+        ask(self.Summarizer, { type: 'key-points', format: 'plain-text', expectedInputLanguages: ['en'], outputLanguage: 'en' }),
+      ]);
+      const ok = a => ['available', 'downloadable', 'downloading'].includes(a);
+      el.textContent = ok(lm) ? 'This browser supports both: AI summary and Ask AI.'
+        : ok(sm) ? 'This browser supports the AI summary; Ask AI needs the Prompt API (Chrome 148+, or Edge with its flag).'
+        : lm === 'unknown' ? 'This browser did not report its AI support; reload to check again.'
+        : 'This browser can\'t run them (no built-in AI APIs, or the device doesn\'t meet the requirements).';
+      if (ok(lm) && lm !== 'available' || !ok(lm) && ok(sm) && sm !== 'available') el.textContent += ' The model downloads once, on first use.';
+    })();
 
     downloadBtn.addEventListener('click', () => {
       if (!generatedHtml) return;

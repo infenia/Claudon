@@ -26,6 +26,12 @@ const __session = {
   measureContextUsage: async q => q.length / 4,
   clone: async () => __session, destroy() { __calls.push(['destroy']); },
   prompt: async (q, o) => { __calls.push(['prompt', q, o]); return window.__reply(q, o); },
+  append: async m => { __calls.push(['append', m]); },
+  addEventListener() {},
+  promptStreaming(q, o) {
+    __calls.push(['stream', q]);
+    return (async function* () { for (const c of window.__chunks(q)) yield c; })();
+  },
 };
 window.LanguageModel = {
   availability: async o => { __calls.push(['availability', o]); return 'AVAIL'; },
@@ -360,9 +366,9 @@ class TestClaudonUI(unittest.TestCase):
         card.locator(".more button", has_text="show all").click()
         self.assertEqual(rows(), 20)
 
-    def open_bottlenecks(self, tr):
+    def open_bottlenecks(self, tr, tab="Bottlenecks"):
         self.page.goto(tr.report(self.tmp_path / "f").as_uri())
-        self.page.click("nav button:text-is('Bottlenecks')")
+        self.page.click(f"nav button:text-is('{tab}')")
         return lambda key: self.page.locator(f"#f-{key}")
 
     def test_findings_target_the_right_tasks_and_say_how_to_fix(self):
@@ -411,21 +417,22 @@ class TestClaudonUI(unittest.TestCase):
         self.assertIn("Signals: approval waits 2m 30s", self.page.locator("#mbody").inner_text())
 
     def ai_page(self, avail="available", reply="null", extra=""):
-        """Bottlenecks tab of the approval-wait report, with a mocked on-device model"""
+        """Overview tab (where the AI summary lives) of the approval-wait report, with a mocked on-device model"""
         tr = Transcript()
         tr.prompt("approve edits")
         for _ in range(3):
             tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
         self.page.add_init_script(MOCK_LM.replace("AVAIL", avail) + f"window.__reply = {reply};" + extra)
-        return self.open_bottlenecks(tr)
+        return self.open_bottlenecks(tr, "Overview")
 
     SUMMARY = """(q, o) => JSON.stringify({headline: 'Approvals <img src=x onerror="window.__xss=1"> slow you down',
         summary: 'Most of the wait is permission prompts.',
         priorities: [{finding: 'approval', action: 'Add allow rules'}, {finding: 'invented', action: 'nothing'}]})"""
 
     def test_ai_hidden_without_browser_support(self):
-        self.page.click("nav button:text-is('Bottlenecks')")
-        self.assertEqual(self.page.locator("#ai").count(), 0)
+        for name in ("Overview", "Bottlenecks"):
+            self.page.click(f"nav button:text-is('{name}')")
+            self.assertEqual(self.page.locator("#ai").count(), 0)
         self.assertEqual(self.page.locator("#nav button").count(), 5)
 
     def test_ai_hidden_when_device_cannot_run_the_model(self):
@@ -436,12 +443,14 @@ class TestClaudonUI(unittest.TestCase):
         self.ai_page(reply=self.SUMMARY)
         ai = self.page.locator("#ai")
         ai.locator("button", has_text="Summarize with on-device AI").click()
-        self.assertIn("slow you down", ai.locator("p b").inner_text())
-        self.assertIn('<img src=x', ai.locator("p b").inner_text())        # model output is text, never markup
+        headline = ai.locator(".ai-headline")
+        self.assertIn("slow you down", headline.inner_text())
+        self.assertIn('<img src=x', headline.inner_text())                 # model output is text, never markup
         self.assertIsNone(self.page.evaluate("window.__xss"))
-        links = ai.locator("ol li a")
+        links = ai.locator(".prio [data-f]")
         self.assertEqual(links.all_inner_texts(), ["Permission prompts held up 2m 30s of work"])   # invented key dropped
-        links.first.click()
+        links.first.click()                                                     # opens the finding on the Bottlenecks tab
+        self.assertEqual(self.page.locator("#nav button.on").inner_text(), "Bottlenecks")
         self.assertIn("flash", self.page.locator("#f-approval").get_attribute("class"))
         calls = self.page.evaluate("__calls")
         avail = next(c[1] for c in calls if c[0] == "availability")
@@ -457,27 +466,53 @@ class TestClaudonUI(unittest.TestCase):
         self.page.locator("#ai button").click()
         self.page.locator("#ai ol").wait_for()
         self.page.reload()
-        self.page.click("nav button:text-is('Bottlenecks')")
-        self.assertIn("slow you down", self.page.locator("#ai").inner_text())
+        self.assertIn("slow you down", self.page.locator("#ai").inner_text())       # Overview is the landing tab
         self.assertFalse(any(c[0] == "prompt" for c in self.page.evaluate("__calls")))
 
     def test_ai_model_download_shows_progress(self):
         gate = """window.__beforeCreate = o => new Promise(go => {
             const m = new EventTarget(); o.monitor(m);
-            const e = new Event('downloadprogress'); e.loaded = 0.5; e.total = 1; m.dispatchEvent(e);
-            window.__finish = go; });"""
+            const ev = f => { const e = new Event('downloadprogress'); e.loaded = f; e.total = 1; m.dispatchEvent(e); };
+            ev(0.5); window.__done = () => ev(1); window.__finish = go; });"""
         self.ai_page(avail="downloadable", reply=self.SUMMARY, extra=gate)
         ai = self.page.locator("#ai")
         self.assertIn("downloads its built-in model once", ai.inner_text())
         ai.locator("button", has_text="Enable on-device AI").click()
         self.assertEqual(self.page.locator("#aipcttxt").inner_text(), "50%")
+        self.assertIn("Download model", ai.locator(".steps li.now").inner_text())
+        bar = ai.locator(".pbar").bounding_box()["width"] / ai.bounding_box()["width"]
+        self.assertGreater(bar, 0.9)                                                   # full width, not a stub
+        self.page.evaluate("window.__done()")             # downloaded, but the browser still loads the model: must not look stuck
+        self.assertIn("Preparing the model on this computer", ai.locator(".wait").inner_text())
+        self.assertEqual(ai.locator(".steps li.done").all_inner_texts(), ["Download model"])
+        self.assertEqual(ai.locator(".pbar.ind").count(), 1)                          # indeterminate while preparing
         self.page.evaluate("window.__finish()")
-        self.assertIn("slow you down", ai.locator("p b").inner_text())
+        self.assertIn("slow you down", ai.locator(".ai-headline").inner_text())
+
+    def test_chat_shows_model_download_while_waiting(self):
+        gate = """window.__beforeCreate = o => new Promise(go => {
+            const m = new EventTarget(); o.monitor(m);
+            const ev = f => { const e = new Event('downloadprogress'); e.loaded = f; e.total = 1; m.dispatchEvent(e); };
+            ev(0.3); window.__done = () => ev(1); window.__finish = go; });"""
+        self.chat_page("q => ['ok']")
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "downloadable") + "window.__chunks = q => ['ok'];" + gate)
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.page.fill("#q", "hi")
+        self.page.keyboard.press("Enter")
+        wait = self.page.locator("#cwait")
+        self.assertIn("Downloading the model · 30%", wait.inner_text())
+        self.page.evaluate("window.__done()")
+        self.assertIn("Preparing the model", wait.inner_text())
+        self.page.evaluate("window.__finish()")
+        self.page.locator(".msg.bot", has_text="ok").wait_for()
 
     def test_ai_failure_keeps_the_dashboard(self):
         self.ai_page(extra="window.__beforeCreate = async () => { throw new DOMException('no GPU', 'NotSupportedError'); };")
         self.page.locator("#ai button").click()
         self.assertIn("The on-device model failed: no GPU", self.page.locator("#ai .aierr").inner_text())
+        self.assertTrue(self.page.locator(".grid .card").first.is_visible())       # the analytics around it are untouched
+        self.page.click("nav button:text-is('Bottlenecks')")
         self.assertTrue(self.page.locator("#f-approval").is_visible())
 
     def test_ai_summary_from_summarizer_api(self):
@@ -488,11 +523,143 @@ class TestClaudonUI(unittest.TestCase):
         tr.prompt("approve edits")
         for _ in range(3):
             tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
-        self.open_bottlenecks(tr)
-        self.assertIn("Summarizer API", self.page.locator("#ai h2").inner_text())
+        self.open_bottlenecks(tr, "Overview")
+        self.assertIn("Summarizer API", self.page.locator("#ai").inner_text())
+        self.assertEqual(self.page.locator("#nav button").count(), 5)           # no chat without the Prompt API
         self.page.locator("#ai button").click()
-        self.assertEqual(self.page.locator("#aitext").inner_text(), "* Approve less often.\n* Then fix Bash.")
+        self.assertEqual(self.page.locator("#aitext li").all_inner_texts(), ["Approve less often.", "Then fix Bash."])   # bullets become a list
         self.assertIn("Permission prompts held up", self.page.evaluate("__seen[0]"))
+
+    def chat_page(self, chunks):
+        """Ask AI tab over two tasks; the mocked model streams chunks(question)"""
+        tr = Transcript()
+        tr.prompt("cheap task")
+        tr.turn(("Read", {"file_path": "/a.py"}, False))
+        tr.prompt("costly task")
+        for _ in range(12):
+            tr.turn(("Bash", {"command": "make"}, False))
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "available") + f"window.__chunks = {chunks};")
+        self.page.goto(tr.report(self.tmp_path / "c").as_uri())
+        self.page.click("nav button:text-is('Ask AI')")
+        return self.page.evaluate("[...D.tasks].sort((x, y) => y.cost - x.cost)[0].id")
+
+    def ask(self, q):
+        self.page.fill("#q", q)
+        self.page.keyboard.press("Enter")
+        self.page.locator("#ask button[aria-label=Send]").wait_for()          # Stop turns back into Send when done
+
+    def test_chat_tab_only_with_prompt_api(self):
+        self.chat_page("q => ['ok']")
+        self.assertEqual(self.page.locator("#nav button").all_inner_texts()[-1], "Ask AI")
+        self.page.set_viewport_size({"width": 390, "height": 800})                 # six tabs scroll inside the nav, not the page
+        self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), 390)
+
+    def test_chat_answers_with_cited_tasks_and_shows_its_data(self):
+        costly = self.chat_page("q => ['The most expensive is ', '[' + [...D.tasks].sort((x, y) => y.cost - x.cost)[0].id + ']', ', not [nope#9].']")
+        self.ask("Which task cost the most?")
+        answer = self.page.locator(".msg.bot").last
+        self.assertIn("The most expensive is", answer.inner_text())
+        self.assertIn("[nope#9]", answer.inner_text())                       # invented ids stay plain text
+        chip = answer.locator(".chip")
+        self.assertEqual(chip.count(), 1)
+        self.assertEqual(chip.get_attribute("data-task"), costly)
+        data = json.loads(answer.locator("details pre").text_content())
+        self.assertEqual((data["ranked_by"], data["top_tasks"][0]["id"]), ("cost", costly))
+        chip.click()
+        self.assertIn("costly task", self.page.locator("#mbody").inner_text())
+        sent = next(c[1] for c in self.page.evaluate("__calls") if c[0] == "append")
+        self.assertIn("Report data for the current view", sent[0]["content"])
+
+    def test_chat_retrieval_follows_the_question(self):
+        self.chat_page("q => ['ok']")
+        ctx = self.page.evaluate("context('Which tools fail most, and in which tasks?', F)")
+        self.assertEqual(ctx["ranked_by"], "tool errors")
+        self.assertEqual({t["tool"] for t in ctx["tools"]}, {"Bash", "Read"})
+        ctx = self.page.evaluate("context('what happened in ' + D.tasks[0].id + ' ?', F)")
+        self.assertEqual(ctx["named_tasks"][0]["prompt"], "cheap task")
+
+    def test_chat_persists_across_reloads_until_cleared(self):
+        self.chat_page("q => ['Answer to: ' + q.split('Question: ')[1]]")
+        self.page.locator(".chat-empty [data-q]").first.click()                # a suggested question
+        self.page.locator(".msg.bot", has_text="Answer to: What should I fix first?").wait_for()
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.assertEqual(self.page.locator(".msg").count(), 2)
+        self.ask("And then?")
+        history = next(c[1] for c in self.page.evaluate("__calls") if c[0] == "append")
+        self.assertEqual([m["role"] for m in history[2:]], ["user", "assistant"])   # earlier turns rebuilt into the session
+        self.page.click("[data-chat=clear]")
+        self.assertEqual(self.page.locator(".msg").count(), 0)
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.assertEqual(self.page.locator(".msg").count(), 0)
+
+    def test_chat_suggestions_come_from_findings_then_the_model(self):
+        reply = """(q, o) => JSON.stringify({questions: q.includes('follow-up')
+            ? ['Which Bash calls failed?', 'How long did make take?']
+            : ['Why is make so slow here?', 'What did [nope#4] cost?', 'not a question', 'Which task used the most turns?']})"""
+        self.chat_page("q => ['Mostly make.']")
+        self.page.add_init_script(f"window.__reply = {reply};")
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.page.locator(".sgl", has_text="Suggested by on-device AI").wait_for()
+        qs = self.page.locator("#sugg [data-q]").all_inner_texts()
+        self.assertEqual(qs, ["Why is make so slow here?", "Which task used the most turns?"])   # invented id and non-question dropped
+        prompt = next(c for c in self.page.evaluate("__calls") if c[0] == "prompt")
+        self.assertIn("Report data for the current view", prompt[1])
+        self.assertEqual(prompt[2]["responseConstraint"]["properties"]["questions"]["maxItems"], 6)
+        self.page.locator("#sugg [data-q]").first.click()
+        self.page.locator("#sugg [data-q]", has_text="Which Bash calls failed?").wait_for()     # follow-ups for that answer
+        self.assertNotIn("Why is make so slow here?", self.page.locator("#sugg").inner_text())  # already asked
+        self.page.reload()                                                               # cached per view: no new request
+        self.page.click("nav button:text-is('Ask AI')")
+        self.assertIn("Which Bash calls failed?", self.page.locator("#sugg").inner_text())
+        self.assertEqual(sum(c[0] == "prompt" for c in self.page.evaluate("__calls")), 0)
+
+    def test_chat_suggestions_without_a_ready_model_use_the_findings(self):
+        tr = Transcript()
+        tr.prompt("approve edits")
+        for _ in range(3):
+            tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "downloadable") + "window.__reply = () => { throw new Error('no download without a click'); };")
+        self.page.goto(tr.report(self.tmp_path / "s").as_uri())
+        self.page.click("nav button:text-is('Ask AI')")
+        qs = self.page.locator("#sugg [data-q]").all_inner_texts()
+        self.assertEqual(qs[:2], ["What should I fix first?", "How much time do permission prompts cost me, and how do I cut it?"])
+        self.assertFalse(any(c[0] == "create" for c in self.page.evaluate("__calls")))    # nothing starts a download on its own
+
+    def test_ai_shows_activity_even_with_reduced_motion(self):
+        """Linux desktops with animations off report reduced motion: the AI must still visibly work."""
+        ctx = self.browser.new_context(reduced_motion="reduce")
+        ctx.add_init_script(NO_AI)
+        self.page = ctx.new_page()
+        self.addCleanup(ctx.close)
+        gated = """window.__gate = []; const __wait = () => new Promise(r => __gate.push(r));
+            window.__release = () => __gate.splice(0).forEach(r => r());
+            __session.contextUsage = 1500;
+            __session.promptStreaming = () => (async function* () { await __wait(); yield '- First point\\n- Second'; await __wait(); yield ' point.'; })();"""
+        self.chat_page("q => []")
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "available") + gated)
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.page.fill("#q", "hi")
+        self.page.keyboard.press("Enter")
+        running = "sel => document.querySelector(sel).getAnimations({subtree: true}).filter(a => a.playState == 'running').length"
+        self.assertGreater(self.page.evaluate(running, ".dots"), 0)              # opacity pulse instead of bouncing
+        self.assertIn("Thinking", self.page.locator(".msg.bot .wait").inner_text())
+        self.assertEqual(self.page.locator(".msg.bot [data-since]").count(), 1)  # elapsed timer
+        self.page.evaluate("__release()")
+        caret = self.page.locator(".msg.bot .caret")
+        caret.wait_for()
+        self.assertEqual(caret.evaluate("e => e.parentElement.tagName"), "LI")    # caret ends the text, not a new line
+        self.assertGreater(self.page.evaluate(running, ".msg.bot .ans"), 0)
+        self.page.evaluate("__release()")
+        self.page.locator("#ask button[aria-label=Send]").wait_for()
+        self.assertEqual(self.page.locator(".caret").count(), 0)
+        mem = self.page.locator(".mem")
+        self.assertIn("Memory", mem.inner_text())
+        self.assertIn("context window", mem.get_attribute("data-tip"))
+        self.assertIn("not about your screen", mem.get_attribute("data-tip"))
 
     def test_dark_mode_color_scheme(self):
         """Test theme dark mode CSS variable overrides for background and card colors."""

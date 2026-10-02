@@ -345,6 +345,12 @@ class TestClaudon(unittest.TestCase):
         payload = html.split('<script id="d" type="application/json">', 1)[1].split("</script>", 1)[0]
         self.assertEqual(json.loads(payload), data)
 
+    def test_report_never_navigates_itself(self):
+        # opened from file://, Chrome blocks and logs any load of the page's own URL: no forms, no links
+        self.assertNotIn("<form", render.TEMPLATE)
+        self.assertNotIn("<a ", render.TEMPLATE)
+        self.assertNotIn("location.", render.TEMPLATE)
+
     def test_infenia_attribution_in_template(self):
         self.assertIn("Infenia Private Limited", render.TEMPLATE)
         self.assertIn("MIT License", render.TEMPLATE)

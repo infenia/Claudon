@@ -27,8 +27,10 @@ Pipeline in `claudon/`: `transcript` (tolerant JSONL parsing, prompts, token usa
 
 - Task/model/tool-stat rows are positional arrays that `dashboard.html` reads by index; the layouts are the `M_*` / `T_*` constants in `analyze.py`. Change them together with the JS. `tests/golden.json` pins the output on `tests/fixtures/`.
 - `dashboard.html` also holds the findings engine (`findings()`, thresholds in `RULES`) and the optional on-device AI
-  (`aiDetect`/`aiSummarize`): it feature-detects the browser's `LanguageModel` / `Summarizer` globals, grounds the model
-  on `facts()` built from the findings, and stays hidden when neither is available. No AI code in the Python package.
+  (`aiDetect`/`aiSummarize`, and the Ask AI chat: `context()` picks the data slice per question, `ask()` streams the
+  answer): it feature-detects the browser's `LanguageModel` / `Summarizer` globals, grounds the model on `facts()` built
+  from the findings, and stays hidden when neither is available. No AI code in the Python package. UI tests mock the
+  globals with `page.add_init_script` (`MOCK_LM` in `tests/test_ui.py`).
 - `bin/claudon.js`: thin Node launcher; probes for Python ≥3.11 and runs `python -m claudon` with `PYTHONPATH` set to the package root (npm ships `claudon/`).
 - `scripts/build_zipapp.py` builds `claudon.pyz`, the single-file artifact used by `install.sh` (SHA256-verified GitHub Release asset, attached by `nuitka-build.yml`) and by the WASM page.
 - `wasm/` (`index.html` + `worker.js`): runs the package unchanged in Pyodide in a Web Worker (zipimport of `claudon.pyz`); files never leave the browser. `deploy-pages.yml` builds the pyz into `_site/app/` next to `wasm/*`, plus `site/index.html` + README at the Pages root.
