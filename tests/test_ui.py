@@ -472,15 +472,40 @@ class TestClaudonUI(unittest.TestCase):
     def test_ai_model_download_shows_progress(self):
         gate = """window.__beforeCreate = o => new Promise(go => {
             const m = new EventTarget(); o.monitor(m);
-            const e = new Event('downloadprogress'); e.loaded = 0.5; e.total = 1; m.dispatchEvent(e);
-            window.__finish = go; });"""
+            const ev = f => { const e = new Event('downloadprogress'); e.loaded = f; e.total = 1; m.dispatchEvent(e); };
+            ev(0.5); window.__done = () => ev(1); window.__finish = go; });"""
         self.ai_page(avail="downloadable", reply=self.SUMMARY, extra=gate)
         ai = self.page.locator("#ai")
         self.assertIn("downloads its built-in model once", ai.inner_text())
         ai.locator("button", has_text="Enable on-device AI").click()
         self.assertEqual(self.page.locator("#aipcttxt").inner_text(), "50%")
+        self.assertIn("Download model", ai.locator(".steps li.now").inner_text())
+        bar = ai.locator(".pbar").bounding_box()["width"] / ai.bounding_box()["width"]
+        self.assertGreater(bar, 0.9)                                                   # full width, not a stub
+        self.page.evaluate("window.__done()")             # downloaded, but the browser still loads the model: must not look stuck
+        self.assertIn("Preparing the model on this computer", ai.locator(".wait").inner_text())
+        self.assertEqual(ai.locator(".steps li.done").all_inner_texts(), ["Download model"])
+        self.assertEqual(ai.locator(".pbar.ind").count(), 1)                          # indeterminate while preparing
         self.page.evaluate("window.__finish()")
         self.assertIn("slow you down", ai.locator(".ai-headline").inner_text())
+
+    def test_chat_shows_model_download_while_waiting(self):
+        gate = """window.__beforeCreate = o => new Promise(go => {
+            const m = new EventTarget(); o.monitor(m);
+            const ev = f => { const e = new Event('downloadprogress'); e.loaded = f; e.total = 1; m.dispatchEvent(e); };
+            ev(0.3); window.__done = () => ev(1); window.__finish = go; });"""
+        self.chat_page("q => ['ok']")
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "downloadable") + "window.__chunks = q => ['ok'];" + gate)
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.page.fill("#q", "hi")
+        self.page.keyboard.press("Enter")
+        wait = self.page.locator("#cwait")
+        self.assertIn("Downloading the model · 30%", wait.inner_text())
+        self.page.evaluate("window.__done()")
+        self.assertIn("Preparing the model", wait.inner_text())
+        self.page.evaluate("window.__finish()")
+        self.page.locator(".msg.bot", has_text="ok").wait_for()
 
     def test_ai_failure_keeps_the_dashboard(self):
         self.ai_page(extra="window.__beforeCreate = async () => { throw new DOMException('no GPU', 'NotSupportedError'); };")
