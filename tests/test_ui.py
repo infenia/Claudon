@@ -16,6 +16,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from claudon import discover, render
 
+# Chromium may expose its built-in AI globals; tests start without them so the dashboard is the same everywhere
+NO_AI = "delete window.LanguageModel; delete window.Summarizer;"
+# a scripted Prompt API: availability `AVAIL`, model replies from window.__reply(prompt, options); calls land in window.__calls
+MOCK_LM = """
+window.__calls = [];
+const __session = {
+  contextWindow: 6000, contextUsage: 0,
+  measureContextUsage: async q => q.length / 4,
+  clone: async () => __session, destroy() { __calls.push(['destroy']); },
+  prompt: async (q, o) => { __calls.push(['prompt', q, o]); return window.__reply(q, o); },
+};
+window.LanguageModel = {
+  availability: async o => { __calls.push(['availability', o]); return 'AVAIL'; },
+  create: async o => { __calls.push(['create', o]); if (window.__beforeCreate) await window.__beforeCreate(o); return __session; },
+};
+delete window.Summarizer;
+"""
+
 
 def at(sec):
     return (datetime.datetime(2025, 1, 1, 12, tzinfo=datetime.timezone.utc) + datetime.timedelta(seconds=sec)).isoformat()
@@ -137,6 +155,7 @@ class TestClaudonUI(unittest.TestCase):
         self.report_path.write_text(html_content, encoding="utf-8")
 
         self.context = self.browser.new_context(viewport={"width": 1280, "height": 800})
+        self.context.add_init_script(NO_AI)
         self.page = self.context.new_page()
         self.page.goto(self.report_path.as_uri())
 
@@ -390,6 +409,90 @@ class TestClaudonUI(unittest.TestCase):
         finding = self.open_bottlenecks(tr)
         finding("approval").locator(".chip").first.click()
         self.assertIn("Signals: approval waits 2m 30s", self.page.locator("#mbody").inner_text())
+
+    def ai_page(self, avail="available", reply="null", extra=""):
+        """Bottlenecks tab of the approval-wait report, with a mocked on-device model"""
+        tr = Transcript()
+        tr.prompt("approve edits")
+        for _ in range(3):
+            tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", avail) + f"window.__reply = {reply};" + extra)
+        return self.open_bottlenecks(tr)
+
+    SUMMARY = """(q, o) => JSON.stringify({headline: 'Approvals <img src=x onerror="window.__xss=1"> slow you down',
+        summary: 'Most of the wait is permission prompts.',
+        priorities: [{finding: 'approval', action: 'Add allow rules'}, {finding: 'invented', action: 'nothing'}]})"""
+
+    def test_ai_hidden_without_browser_support(self):
+        self.page.click("nav button:text-is('Bottlenecks')")
+        self.assertEqual(self.page.locator("#ai").count(), 0)
+        self.assertEqual(self.page.locator("#nav button").count(), 5)
+
+    def test_ai_hidden_when_device_cannot_run_the_model(self):
+        self.ai_page(avail="unavailable")
+        self.assertEqual(self.page.locator("#ai").count(), 0)
+
+    def test_ai_summary_from_prompt_api(self):
+        self.ai_page(reply=self.SUMMARY)
+        ai = self.page.locator("#ai")
+        ai.locator("button", has_text="Summarize with on-device AI").click()
+        self.assertIn("slow you down", ai.locator("p b").inner_text())
+        self.assertIn('<img src=x', ai.locator("p b").inner_text())        # model output is text, never markup
+        self.assertIsNone(self.page.evaluate("window.__xss"))
+        links = ai.locator("ol li a")
+        self.assertEqual(links.all_inner_texts(), ["Permission prompts held up 2m 30s of work"])   # invented key dropped
+        links.first.click()
+        self.assertIn("flash", self.page.locator("#f-approval").get_attribute("class"))
+        calls = self.page.evaluate("__calls")
+        avail = next(c[1] for c in calls if c[0] == "availability")
+        self.assertEqual(avail["expectedInputs"], [{"type": "text", "languages": ["en"]}])
+        create = next(c[1] for c in calls if c[0] == "create")
+        self.assertEqual(create["initialPrompts"][0]["role"], "system")
+        prompt = next(c for c in calls if c[0] == "prompt")
+        self.assertIn('"key":"approval"', prompt[1])                         # grounded on the findings
+        self.assertEqual(prompt[2]["responseConstraint"]["properties"]["priorities"]["items"]["properties"]["finding"]["enum"][0], "approval")
+
+    def test_ai_summary_is_cached_per_report(self):
+        self.ai_page(reply=self.SUMMARY)
+        self.page.locator("#ai button").click()
+        self.page.locator("#ai ol").wait_for()
+        self.page.reload()
+        self.page.click("nav button:text-is('Bottlenecks')")
+        self.assertIn("slow you down", self.page.locator("#ai").inner_text())
+        self.assertFalse(any(c[0] == "prompt" for c in self.page.evaluate("__calls")))
+
+    def test_ai_model_download_shows_progress(self):
+        gate = """window.__beforeCreate = o => new Promise(go => {
+            const m = new EventTarget(); o.monitor(m);
+            const e = new Event('downloadprogress'); e.loaded = 0.5; e.total = 1; m.dispatchEvent(e);
+            window.__finish = go; });"""
+        self.ai_page(avail="downloadable", reply=self.SUMMARY, extra=gate)
+        ai = self.page.locator("#ai")
+        self.assertIn("downloads its built-in model once", ai.inner_text())
+        ai.locator("button", has_text="Enable on-device AI").click()
+        self.assertEqual(self.page.locator("#aipcttxt").inner_text(), "50%")
+        self.page.evaluate("window.__finish()")
+        self.assertIn("slow you down", ai.locator("p b").inner_text())
+
+    def test_ai_failure_keeps_the_dashboard(self):
+        self.ai_page(extra="window.__beforeCreate = async () => { throw new DOMException('no GPU', 'NotSupportedError'); };")
+        self.page.locator("#ai button").click()
+        self.assertIn("The on-device model failed: no GPU", self.page.locator("#ai .aierr").inner_text())
+        self.assertTrue(self.page.locator("#f-approval").is_visible())
+
+    def test_ai_summary_from_summarizer_api(self):
+        self.page.add_init_script("""delete window.LanguageModel; window.__seen = [];
+            window.Summarizer = {availability: async () => 'available', create: async o => ({destroy() {},
+              summarizeStreaming: (text, opt) => { __seen.push(text); return (async function* () { yield '* Approve less often.'; yield '\\n* Then fix Bash.'; })(); }})};""")
+        tr = Transcript()
+        tr.prompt("approve edits")
+        for _ in range(3):
+            tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
+        self.open_bottlenecks(tr)
+        self.assertIn("Summarizer API", self.page.locator("#ai h2").inner_text())
+        self.page.locator("#ai button").click()
+        self.assertEqual(self.page.locator("#aitext").inner_text(), "* Approve less often.\n* Then fix Bash.")
+        self.assertIn("Permission prompts held up", self.page.evaluate("__seen[0]"))
 
     def test_dark_mode_color_scheme(self):
         """Test theme dark mode CSS variable overrides for background and card colors."""
