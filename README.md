@@ -24,7 +24,7 @@ uvx claudon --open
 
 <sub>Redacted sample. Your own sessions stay on your machine.</sub>
 
-[Quick start](#quick-start) · [In the browser](#in-the-browser-no-install) · [Usage](#usage) · [Privacy](#privacy) · [Contributing](#contributing)
+[Quick start](#quick-start) · [In the browser](#in-the-browser-no-install) · [Usage](#usage) · [On-device AI](#on-device-ai-optional) · [Privacy](#privacy) · [Contributing](#contributing)
 
 </div>
 
@@ -42,6 +42,7 @@ The answers are already in `~/.claude`. Claudon reads them and shows you:
 | **What it cost** | token usage × list prices per model generation (override with `--pricing`) |
 | **What went wrong** | ranked findings with a concrete fix each: tool failures and retry loops, permission-prompt waits, expired prompt caches, repeated reads, edit churn, context bloat, trends |
 | **How hard it thought** | thinking time vs. thinking tokens |
+| **What to fix first** *(optional AI)* | an AI summary of the findings and an **Ask AI** chat, run by your browser's on-device model, [only in browsers that support it](#on-device-ai-optional) |
 | **Safe to share** | `--redact` strips prompts, paths, commands and project names |
 
 It is a small Python package using only the standard library. No telemetry, no network, no account.
@@ -124,6 +125,7 @@ Claudon also runs entirely in your browser, with no local Python.
 - **Locally:** from the repository root run `python3 -m http.server`, then open `http://localhost:8000/wasm/`.
 
 Drop `.jsonl` transcripts onto the page, or use **Open Folder** on `~/.claude/projects` to keep project grouping and subagents.
+The optional [AI summary and Ask AI](#on-device-ai-optional) work here too, in browsers that support the built-in AI APIs.
 
 ---
 
@@ -166,40 +168,97 @@ claudon --redact -o share-me.html               # safe to attach to an issue
 
 ### What's in the report
 
-- **Task breakdown:** each human prompt through to completion.
-- **Turns & subagents:** model API calls vs. agent delegation.
-- **Time, thinking & cost:** the breakdowns described [above](#why-claudon).
-- **Bottlenecks:** findings ranked worst first, each with the time and spend at stake, why it matters and how to fix it.
+| Tab | What it shows | Works in |
+|---|---|---|
+| **Overview** | KPIs, where the wall-clock time goes, per-task distribution, cost per day, per project and by token type | any modern browser |
+| **Tasks** | every human prompt through to completion; click one for its timeline, tools, context growth and signals | any modern browser |
+| **Tools** | time, errors and rejections per tool, plus the slowest individual calls | any modern browser |
+| **Models & thinking** | calls, cost, speed and thinking per model | any modern browser |
+| **Bottlenecks** | findings ranked worst first, each with the time and spend at stake, why it matters and how to fix it | any modern browser |
+| Bottlenecks → **AI summary** | a headline, where the time and money go, and the fixes to do first | [browsers with built-in AI only](#on-device-ai-optional) |
+| **Ask AI** | chat about the sessions in view | [browsers with the Prompt API only](#on-device-ai-optional) |
 
 The report is one self-contained `.html` file: no server, no external assets.
 
-### On-device AI (optional)
+#### The Bottlenecks findings
 
-If your browser ships a built-in language model, the Bottlenecks tab offers an **AI summary** of the findings: a
-headline, where the time and money go, and the fixes worth doing first. With the Prompt API there is also an
-**Ask AI** tab: chat about the sessions in view ("why was yesterday slow?", "what did the cache cost me?"). Each
-answer is grounded on the report's own numbers, cited tasks open on click, and *Data the model saw* shows exactly what
-it was given. The chat is kept in your browser's local storage until you clear it. The model runs inside your
-browser on your computer, so it works offline and nothing from the report is sent anywhere. Browsers without the API
-never show it.
+Every finding is computed exactly from the transcripts (no AI involved) and comes with a **Fix** line:
 
-| Browser | What you get |
-|---|---|
-| Chrome 148+ (desktop) | Summary and Ask AI via the [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) |
-| Chrome 138–147, Edge | Summary via the [Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api); in Edge, enable `edge://flags` → *Prompt API for on-device language model* for Ask AI |
-| Others | Any browser that adds the same standard `LanguageModel` / `Summarizer` APIs, automatically |
+- **Idle time** and **permission-prompt waits** (Read/Edit/Write calls that sat waiting for your approval)
+- **Failing tools**, and tasks **stuck retrying** the same failing step
+- **Repeated identical reads/searches** and **edit churn** (the same file edited 10+ times)
+- **Context bloat** past 400k tokens, **expired prompt caches** after a 5+ minute pause, and a high **cache-write** share
+- **Interrupts and rejected tool calls**, **heavy thinking**, and **subagent** cost share
+- Tasks with **unusually many turns** for their project, **cost concentration**, and **trends** (earlier vs. later tasks)
 
-The first use asks the browser to download its model once (a few GB; Chrome needs about 22 GB of free disk and
-either a GPU with more than 4 GB of VRAM or 16 GB of RAM). On machines that don't meet the browser's requirements the
-feature stays hidden. The numbers in the findings are always computed exactly; the AI only words and prioritises them.
+Filters (project, search) apply to every finding. The thresholds live in one `RULES` object in
+`claudon/dashboard.html`.
+
+---
+
+## On-device AI (optional)
+
+> [!IMPORTANT]
+> **The AI features work only if your browser supports the built-in AI APIs** (Chrome's
+> [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) or
+> [Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api)) **and your computer meets that browser's
+> hardware requirements.** Otherwise the AI summary and the Ask AI tab are hidden. Everything else, including all the
+> Bottlenecks findings, works in any modern browser.
+
+When your browser can run its own built-in language model, the report adds:
+
+- **AI summary** (Bottlenecks tab): a headline, where the time and money go, and up to four priorities. Each priority
+  links to the finding it is based on.
+- **Ask AI** (its own tab, Prompt API only): chat about the sessions in view, e.g. *"Why was yesterday slow?"*,
+  *"Which tools fail most?"* or *"What did expired caches cost me?"*. Tasks the answer cites become clickable, and
+  *Data the model saw* shows exactly what it was given. The chat is kept in your browser's local storage (per report)
+  until you press *Clear chat*.
+
+**Which browsers**
+
+| Browser | AI summary | Ask AI |
+|---|---|---|
+| Chrome 148+ (desktop) | ✅ Prompt API | ✅ |
+| Chrome 138–147 (desktop) | ✅ Summarizer API | ❌ needs the Prompt API |
+| Microsoft Edge (desktop) | ✅ Summarizer API | ⚙️ enable `edge://flags` → *Prompt API for on-device language model* |
+| Firefox, Safari, mobile browsers | ❌ hidden | ❌ hidden |
+| Any browser that later ships the same standard `LanguageModel` / `Summarizer` APIs | ✅ automatically | ✅ automatically |
+
+Support is detected by asking the browser itself (`LanguageModel.availability()` / `Summarizer.availability()`), never
+from its name, so new browsers work as soon as they ship the APIs.
+
+**Hardware.** Chrome runs Gemini Nano on Windows 10/11, macOS 13+, Linux or ChromeOS (Chromebook Plus). It needs about
+22 GB of free disk, plus either a GPU with more than 4 GB of VRAM or 16 GB of RAM and 4 CPU cores. Edge has similar
+requirements for its Phi model. If the browser reports that the device can't run the model, the AI features stay
+hidden. Check the model's state at `chrome://on-device-internals` (Edge: `edge://on-device-internals`).
+
+**First use.** The browser may need to download its model once (a few GB). Claudon never starts that download on its
+own: it shows **Enable on-device AI**, and the browser downloads its model only after you click. After that the model
+runs locally and keeps working offline.
+
+**Where it works**
+
+- A report the CLI wrote, opened from disk (`file://`)
+- The [browser app](#in-the-browser-no-install), whose report frame is allowed to use the AI APIs
+- A report saved from the browser app
+
+**How it stays accurate.** The AI never computes numbers. It is given the findings and report data (already-formatted
+figures), is told to use only that data, and can only point at findings that exist. Its output is shown as plain text.
+For chat, the data for each question is picked by fixed rules (the tasks, projects, tools, dates and metric it
+mentions), not by the model. The numbers in the findings are always exact; treat the AI's wording as a summary.
+
+**Not seeing it?** Your browser doesn't expose the APIs, the device doesn't meet the requirements, or (Edge) the
+Prompt API flag is off. The [live check](https://claudon.infenia.com/) on the project page tells you which features
+your current browser supports.
 
 ---
 
 ## Privacy
 
 Everything runs on your machine. The CLI makes no network requests, and neither does the report page. The optional
-AI summary uses the browser's own on-device model; if the browser still has to fetch that model, it does so itself,
-and only after you click *Enable on-device AI*.
+[AI summary and Ask AI chat](#on-device-ai-optional) use the browser's own on-device model, so your data never leaves
+your computer for them either. If the browser still has to fetch that model, it does so itself, and only after you
+click *Enable on-device AI*. Chat history stays in your browser's local storage until you clear it.
 
 The browser version uploads nothing either: files are read and analyzed locally. Its only downloads are the Pyodide
 runtime (from jsDelivr) and `claudon.pyz`, and once it shows *Ready* it keeps working offline. Chrome and Edge ask to
