@@ -129,7 +129,7 @@ function bottlenecks(){const a=A(F),out=[],ids=(l,n=6)=>l.slice(0,n).map(t=>t.id
  const slow=top(t=>t.wall);out.push(['',`Longest tasks by wall time`,'',ids(slow)]);
  return `<div class="card"><h2>Automatic findings</h2>`+out.map(([c,h,b,l])=>`<div class="find ${c}"><b>${esc(h)}</b>${esc(b)}<div>${l.map(id=>{const t=D.tasks.find(x=>x.id==id);return `<span class="chip" data-task="${esc(id)}">${esc(t.prompt.slice(0,45))} · ${T(t.wall)} · ${$$(t.cost)}</span>`}).join('')}</div></div>`).join('')+'</div>';}
 
-function detail(id){const t=D.tasks.find(x=>x.id==id),w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
+function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
  const lanes=['model','tools','subagent'].map((n,i)=>`<div class="lane"><label>${n}</label>`+t.segs.filter(s=>i==0?s[0]=='m':i==1?(s[0]=='t'||s[0]=='te'):(s[0]=='ms'||s[0]=='ts')).map(s=>{
   const col=s[0]=='te'?'e':(s[0]=='m'||s[0]=='ms')?'m':s[0]=='ts'?'a':'t',extra=s[0][0]=='m'?`${esc(sn(s[3]))} · ${s[5]} out tok · think ${T(s[4])}`:esc(s[3]+': '+s[4]);
   const th=s[0][0]=='m'&&s[4]>0?`<span class="th" style="left:${pc(s[1])};width:${pc(Math.min(s[4],s[2]))}" title="thinking ${T(s[4])}"></span>`:'';
@@ -157,10 +157,10 @@ $('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).to
  <details><summary>Rates used ($ per million tokens; the longest key contained in the model name wins)</summary>
   <table><tr><th>Model key</th><th class="n">Input</th><th class="n">Output</th><th class="n">Cache read</th><th class="n">Cache write 5m</th><th class="n">Cache write 1h</th></tr>${rates}</table></details>`;
 document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task],[data-more]');if(!el)return;
- const modal=()=>{if(cur&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
+ const modal=()=>{if(cur>=0&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
  if(el.dataset.more){const[id,step]=el.dataset.more.split('|');shown[id]=step=='all'?Infinity:(shown[id]||+step)+ +step;render();modal();return}
  if(el.dataset.t!=null){tab=+el.dataset.t;render()}else if(el.dataset.s){const[id,i]=el.dataset.s.split('|'),s=sorts[id];s.d=s.i==+i?-s.d:-1;s.i=+i;render();modal()}
- else{cur=D.tasks.find(x=>x.id==el.dataset.task)?.id;delete shown.dt;delete shown.ds;$('#mbody').innerHTML=detail(cur);$('#modal').style.display='block';document.body.style.overflow='hidden';$('#modal').scrollTop=0}});
+ else{cur=D.tasks.findIndex(x=>x.id==el.dataset.task);delete shown.dt;delete shown.ds;$('#mbody').innerHTML=detail(cur);$('#modal').style.display='block';document.body.style.overflow='hidden';$('#modal').scrollTop=0}});
 const closeM=()=>{$('#modal').style.display='none';document.body.style.overflow=''};
 $('#x').onclick=closeM;$('#modal').onclick=e=>{if(e.target.id=='modal')closeM()};
 document.addEventListener('keydown',e=>{if(e.key=='Escape'&&$('#modal').style.display=='block')closeM()});
