@@ -447,7 +447,7 @@ class TestClaudonUI(unittest.TestCase):
         self.assertIn("slow you down", headline.inner_text())
         self.assertIn('<img src=x', headline.inner_text())                 # model output is text, never markup
         self.assertIsNone(self.page.evaluate("window.__xss"))
-        links = ai.locator("ol li a")
+        links = ai.locator(".prio [data-f]")
         self.assertEqual(links.all_inner_texts(), ["Permission prompts held up 2m 30s of work"])   # invented key dropped
         links.first.click()                                                     # opens the finding on the Bottlenecks tab
         self.assertEqual(self.page.locator("#nav button.on").inner_text(), "Bottlenecks")

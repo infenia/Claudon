@@ -52,7 +52,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 .prio li{counter-increment:p;position:relative;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 12px 11px 46px;transition:border-color .15s,transform .15s,box-shadow .15s}
 .prio li:hover{border-color:var(--think);transform:translateY(-1px);box-shadow:0 8px 18px -14px var(--ai-glow)}
 .prio li::before{content:counter(p);position:absolute;left:12px;top:11px;width:24px;height:24px;border-radius:50%;background:var(--ai);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
-.prio a{display:block;font-weight:600;color:var(--fg);text-decoration:none;margin-bottom:3px;line-height:1.35}.prio a:hover{color:var(--model)}.prio span{color:var(--mute);font-size:13px}
+.plink{display:block;font:inherit;font-weight:600;text-align:left;color:var(--fg);background:none;border:0;padding:0;cursor:pointer;margin-bottom:3px;line-height:1.35}.plink:hover{color:var(--model)}
+.plink:focus-visible{outline:2px solid var(--think);outline-offset:2px;border-radius:4px}.prio span{color:var(--mute);font-size:13px}
 .ai-foot{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:12px;border-top:1px dashed var(--line);padding-top:10px}.ai-foot svg{width:13px;height:13px;fill:currentColor;flex:none}
 .shim{height:11px;border-radius:6px;margin:12px 0;background:linear-gradient(90deg,var(--line),rgba(139,92,246,.28),var(--line));background-size:200% 100%;animation:shim 1.4s linear infinite}
 @keyframes shim{to{background-position:-200% 0}}
@@ -365,7 +366,7 @@ function aiCard(){const e=engine();if(!e)return '';const fs=findings(F),av=e=='l
    (AI.out?.text!=null?`<div id="aitext" class="ans" style="margin-top:12px">${fmtAnswer(AI.out.text,1)}</div>`:'');
  else if(AI.st=='done'){const o=AI.out;body=head(`<button class="ghost tip-r" data-ai="sum"${tip('Write a new summary for the current filters')}>${IC.redo}Regenerate</button>`)+
    (o.text!=null?`<div id="aitext" class="ans" style="margin:12px 0 14px">${fmtAnswer(o.text)}</div>`:`<div class="ai-headline">${esc(o.headline)}</div><p class="ai-sum">${esc(o.summary)}</p>`+
-   (o.priorities.length?`<ol class="prio">${o.priorities.map(p=>`<li><a href="#f-${esc(p.finding)}" data-f="${esc(p.finding)}">${esc(titles[p.finding]||p.finding)}</a><span>${esc(p.action)}</span></li>`).join('')}</ol>`:''))+
+   (o.priorities.length?`<ol class="prio">${o.priorities.map(p=>`<li><button type="button" class="plink" data-f="${esc(p.finding)}">${esc(titles[p.finding]||p.finding)}</button><span>${esc(p.action)}</span></li>`).join('')}</ol>`:''))+
    `<div class="ai-foot">${IC.shield}Written on this computer by your browser's built-in model and may be imprecise. The numbers on this page and in Bottlenecks are exact.</div>`}
  else body=`<div class="ai-idle"><div class="spark">${IC.spark}</div><div class="txt"><div class="ai-head"><h2>AI summary</h2>${pill}</div>`+
    `<p class="s">${av=='available'?'Turn this report into a short brief: where the time and money go, and what to fix first. Runs on this computer.':
@@ -448,8 +449,8 @@ function chatView(){const busy=!!CHAT.ctl,last=CHAT.msgs.length-1;
    `<p class="s">Answers use the numbers in this report, run on this computer, and link to the tasks they cite.</p><div id="sugg">${suggHtml()}</div></div>`}</div>`+
   (CHAT.overflow?'<div class="aierr" style="margin:0 0 10px">The conversation no longer fits in the model\'s memory, so the oldest messages are being forgotten. Clear the chat to start fresh.</div>':'')+
   (CHAT.msgs.length&&!busy?`<div id="sugg">${suggHtml()}</div>`:'')+
-  `<form id="ask" class="composer"><textarea id="q" rows="1" aria-label="Ask a question" placeholder="Ask about time, cost, tools, a project or a task…" ${busy?'disabled':''}></textarea>`+
-  (busy?`<button type="button" class="send stop tip-r tip-up" data-chat="stop" aria-label="Stop"${tip('Stop the answer')}>${IC.stop}</button>`:`<button class="send tip-r tip-up" aria-label="Send"${tip('Send (Enter)')}>${IC.send}</button>`)+'</form>'+
+  `<div id="ask" class="composer" role="group" aria-label="Ask the on-device model"><textarea id="q" rows="1" aria-label="Ask a question" placeholder="Ask about time, cost, tools, a project or a task…" ${busy?'disabled':''}></textarea>`+
+  (busy?`<button type="button" class="send stop tip-r tip-up" data-chat="stop" aria-label="Stop"${tip('Stop the answer')}>${IC.stop}</button>`:`<button type="button" class="send tip-r tip-up" data-chat="send" aria-label="Send"${tip('Send (Enter)')}>${IC.send}</button>`)+'</div>'+
   `<div class="s hint"><span><kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</span><span>Answers come from your browser's model and can be wrong; check the linked tasks.</span></div></div>`}
 // ---- suggested questions: instant ones built from the findings, then ones the on-device model writes for this view ----
 const FQ={approval:'How much time do permission prompts cost me, and how do I cut it?','tool-errors':'Which tools fail most often, and why?',
@@ -495,7 +496,6 @@ function chatMounted(){aiSuggest();const box=$('#msgs'),q=$('#q');if(box)box.scr
  if(q){q.value=CHAT.draft;grow(q);if(!CHAT.ctl&&document.activeElement?.tagName!='INPUT'&&document.activeElement?.tagName!='SELECT')q.focus({preventScroll:true})}}
 const grow=q=>{q.style.height='auto';q.style.height=Math.min(q.scrollHeight,160)+'px'};
 document.addEventListener('input',e=>{if(e.target.id=='q'){CHAT.draft=e.target.value;grow(e.target)}});
-document.addEventListener('submit',e=>{if(e.target.id=='ask'){e.preventDefault();ask($('#q').value)}});
 document.addEventListener('keydown',e=>{if(e.target.id=='q'&&e.key=='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();ask(e.target.value)}});
 
 function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
@@ -531,9 +531,9 @@ $('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).to
 document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task],[data-more],[data-ai],[data-f],[data-q],[data-chat],[data-copy]');if(!el)return;
  if(el.dataset.copy){const html=el.innerHTML;navigator.clipboard?.writeText(CHAT.msgs[+el.dataset.copy]?.text||'').then(()=>{el.textContent='Copied';setTimeout(()=>el.innerHTML=html,1200)},()=>{});return}
  if(el.dataset.q){ask(el.dataset.q);return}
- if(el.dataset.chat){if(el.dataset.chat=='stop')CHAT.ctl?.abort();else{CHAT.ctl?.abort();CHAT.msgs=[];CHAT.sess?.destroy();Object.assign(CHAT,{sess:null,overflow:false,usage:null});store.del('chat');render()}return}
+ if(el.dataset.chat){if(el.dataset.chat=='send')ask($('#q').value);else if(el.dataset.chat=='stop')CHAT.ctl?.abort();else{CHAT.ctl?.abort();CHAT.msgs=[];CHAT.sess?.destroy();Object.assign(CHAT,{sess:null,overflow:false,usage:null});store.del('chat');render()}return}
  if(el.dataset.ai){el.dataset.ai=='stop'?AI.ctl?.abort():aiSummarize();return}
- if(el.dataset.f){e.preventDefault();if(views[tab]!=bottlenecks){tab=views.indexOf(bottlenecks);render()}
+ if(el.dataset.f){if(views[tab]!=bottlenecks){tab=views.indexOf(bottlenecks);render()}
   const f=document.getElementById('f-'+el.dataset.f);if(f){f.scrollIntoView({behavior:'smooth',block:'center'});f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
  const modal=()=>{if(cur>=0&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
  if(el.dataset.more){const[id,step]=el.dataset.more.split('|');shown[id]=step=='all'?Infinity:(shown[id]||+step)+ +step;render();modal();return}
