@@ -366,9 +366,9 @@ class TestClaudonUI(unittest.TestCase):
         card.locator(".more button", has_text="show all").click()
         self.assertEqual(rows(), 20)
 
-    def open_bottlenecks(self, tr):
+    def open_bottlenecks(self, tr, tab="Bottlenecks"):
         self.page.goto(tr.report(self.tmp_path / "f").as_uri())
-        self.page.click("nav button:text-is('Bottlenecks')")
+        self.page.click(f"nav button:text-is('{tab}')")
         return lambda key: self.page.locator(f"#f-{key}")
 
     def test_findings_target_the_right_tasks_and_say_how_to_fix(self):
@@ -417,21 +417,22 @@ class TestClaudonUI(unittest.TestCase):
         self.assertIn("Signals: approval waits 2m 30s", self.page.locator("#mbody").inner_text())
 
     def ai_page(self, avail="available", reply="null", extra=""):
-        """Bottlenecks tab of the approval-wait report, with a mocked on-device model"""
+        """Overview tab (where the AI summary lives) of the approval-wait report, with a mocked on-device model"""
         tr = Transcript()
         tr.prompt("approve edits")
         for _ in range(3):
             tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
         self.page.add_init_script(MOCK_LM.replace("AVAIL", avail) + f"window.__reply = {reply};" + extra)
-        return self.open_bottlenecks(tr)
+        return self.open_bottlenecks(tr, "Overview")
 
     SUMMARY = """(q, o) => JSON.stringify({headline: 'Approvals <img src=x onerror="window.__xss=1"> slow you down',
         summary: 'Most of the wait is permission prompts.',
         priorities: [{finding: 'approval', action: 'Add allow rules'}, {finding: 'invented', action: 'nothing'}]})"""
 
     def test_ai_hidden_without_browser_support(self):
-        self.page.click("nav button:text-is('Bottlenecks')")
-        self.assertEqual(self.page.locator("#ai").count(), 0)
+        for name in ("Overview", "Bottlenecks"):
+            self.page.click(f"nav button:text-is('{name}')")
+            self.assertEqual(self.page.locator("#ai").count(), 0)
         self.assertEqual(self.page.locator("#nav button").count(), 5)
 
     def test_ai_hidden_when_device_cannot_run_the_model(self):
@@ -448,7 +449,8 @@ class TestClaudonUI(unittest.TestCase):
         self.assertIsNone(self.page.evaluate("window.__xss"))
         links = ai.locator("ol li a")
         self.assertEqual(links.all_inner_texts(), ["Permission prompts held up 2m 30s of work"])   # invented key dropped
-        links.first.click()
+        links.first.click()                                                     # opens the finding on the Bottlenecks tab
+        self.assertEqual(self.page.locator("#nav button.on").inner_text(), "Bottlenecks")
         self.assertIn("flash", self.page.locator("#f-approval").get_attribute("class"))
         calls = self.page.evaluate("__calls")
         avail = next(c[1] for c in calls if c[0] == "availability")
@@ -464,8 +466,7 @@ class TestClaudonUI(unittest.TestCase):
         self.page.locator("#ai button").click()
         self.page.locator("#ai ol").wait_for()
         self.page.reload()
-        self.page.click("nav button:text-is('Bottlenecks')")
-        self.assertIn("slow you down", self.page.locator("#ai").inner_text())
+        self.assertIn("slow you down", self.page.locator("#ai").inner_text())       # Overview is the landing tab
         self.assertFalse(any(c[0] == "prompt" for c in self.page.evaluate("__calls")))
 
     def test_ai_model_download_shows_progress(self):
@@ -485,6 +486,8 @@ class TestClaudonUI(unittest.TestCase):
         self.ai_page(extra="window.__beforeCreate = async () => { throw new DOMException('no GPU', 'NotSupportedError'); };")
         self.page.locator("#ai button").click()
         self.assertIn("The on-device model failed: no GPU", self.page.locator("#ai .aierr").inner_text())
+        self.assertTrue(self.page.locator(".grid .card").first.is_visible())       # the analytics around it are untouched
+        self.page.click("nav button:text-is('Bottlenecks')")
         self.assertTrue(self.page.locator("#f-approval").is_visible())
 
     def test_ai_summary_from_summarizer_api(self):
@@ -495,7 +498,7 @@ class TestClaudonUI(unittest.TestCase):
         tr.prompt("approve edits")
         for _ in range(3):
             tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
-        self.open_bottlenecks(tr)
+        self.open_bottlenecks(tr, "Overview")
         self.assertIn("Summarizer API", self.page.locator("#ai").inner_text())
         self.assertEqual(self.page.locator("#nav button").count(), 5)           # no chat without the Prompt API
         self.page.locator("#ai button").click()

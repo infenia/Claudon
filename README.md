@@ -42,7 +42,7 @@ The answers are already in `~/.claude`. Claudon reads them and shows you:
 | **What it cost** | token usage × list prices per model generation (override with `--pricing`) |
 | **What went wrong** | ranked findings with a concrete fix each: tool failures and retry loops, permission-prompt waits, expired prompt caches, repeated reads, edit churn, context bloat, trends |
 | **How hard it thought** | thinking time vs. thinking tokens |
-| **What to fix first** *(optional AI)* | an AI summary of the findings and an **Ask AI** chat, run by your browser's on-device model, [only in browsers that support it](#on-device-ai-optional) |
+| **What to fix first** *(optional AI)* | an AI summary on the Overview and an **Ask AI** chat, run by your browser's on-device model, [only in browsers that support it](#on-device-ai-optional) |
 | **Safe to share** | `--redact` strips prompts, paths, commands and project names |
 
 It is a small Python package using only the standard library. No telemetry, no network, no account.
@@ -175,7 +175,7 @@ claudon --redact -o share-me.html               # safe to attach to an issue
 | **Tools** | time, errors and rejections per tool, plus the slowest individual calls | any modern browser |
 | **Models & thinking** | calls, cost, speed and thinking per model | any modern browser |
 | **Bottlenecks** | findings ranked worst first, each with the time and spend at stake, why it matters and how to fix it | any modern browser |
-| Bottlenecks → **AI summary** | a headline, where the time and money go, and the fixes to do first | [browsers with built-in AI only](#on-device-ai-optional) |
+| Overview → **AI summary** | a headline, where the time and money go, and the fixes to do first (each opens its finding in Bottlenecks) | [browsers with built-in AI only](#on-device-ai-optional) |
 | **Ask AI** | chat about the sessions in view | [browsers with the Prompt API only](#on-device-ai-optional) |
 
 The report is one self-contained `.html` file: no server, no external assets.
@@ -207,8 +207,8 @@ Filters (project, search) apply to every finding. The thresholds live in one `RU
 
 When your browser can run its own built-in language model, the report adds:
 
-- **AI summary** (Bottlenecks tab): a headline, where the time and money go, and up to four priorities. Each priority
-  links to the finding it is based on.
+- **AI summary** (Overview tab, under the KPIs): a headline, where the time and money go, and up to four priorities.
+  Each priority opens the Bottlenecks finding it is based on.
 - **Ask AI** (its own tab, Prompt API only): chat about the sessions in view, e.g. *"Why was yesterday slow?"*,
   *"Which tools fail most?"* or *"What did expired caches cost me?"*. Tasks the answer cites become clickable, and
   *Data the model saw* shows exactly what it was given. The chat is kept in your browser's local storage (per report)
