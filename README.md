@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/logo.svg" width="112" height="112" alt="Claudon logo">
+
 # Claudon
 
 **See where your Claude Code time and money actually go.**
