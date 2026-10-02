@@ -17,7 +17,10 @@ One command turns your session logs into an interactive HTML dashboard.<br>
 uvx claudon --open
 ```
 
-<img src="docs/assets/overview.png" alt="Claudon dashboard overview: tasks, wall time, cost, time breakdown and per-project cost" width="860">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo-dark.webp">
+  <img src="docs/assets/demo-light.webp" alt="Claudon dashboard tour: overview, tasks, tools, models and bottlenecks" width="860">
+</picture>
 
 <sub>Redacted sample. Your own sessions stay on your machine.</sub>
 
