@@ -1,15 +1,16 @@
 # Contributing to Claudon
 
-Thanks for helping out! Claudon is a single-file, stdlib-only Python tool; please keep it that way (no runtime dependencies).
+Thanks for helping out! Claudon is a stdlib-only Python package; please keep it that way (no runtime dependencies).
 
 ## Development setup
 
 ```bash
 git clone https://github.com/infenia/claudon.git && cd claudon
-python3 claudon.py ~/.claude -o report.html --open     # run from source
+python3 -m claudon ~/.claude -o report.html --open     # run from source
 pip install ruff playwright && playwright install chromium
 pipx run ruff check .                                   # lint (same as CI)
 python -m unittest discover tests                       # tests (tests/test_ui.py needs Playwright)
+python tests/test_golden.py --update                    # only after an intentional change to the report data
 ```
 
 ## Pull requests

@@ -3,7 +3,7 @@
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 
-const scriptPath = path.join(__dirname, '..', 'claudon.py');
+const root = path.join(__dirname, '..');
 const args = process.argv.slice(2);
 
 // Probe instead of trusting the name: on Windows `python3` is often the Microsoft Store stub,
@@ -23,7 +23,7 @@ if (!python) {
   process.exit(1);
 }
 
-const child = spawn(python, [scriptPath, ...args], { stdio: 'inherit' });
+const child = spawn(python, ['-m', 'claudon', ...args], { stdio: 'inherit', env: { ...process.env, PYTHONPATH: [root, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter) } });
 child.on('error', err => {
   console.error(`Error: failed to run ${python}: ${err.message}`);
   process.exit(1);

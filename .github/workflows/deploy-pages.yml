@@ -8,7 +8,8 @@ on:
       - 'site/**'
       - 'README.md'
       - 'docs/assets/**'
-      - 'claudon.py'
+      - 'claudon/**'
+      - 'scripts/build_zipapp.py'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -35,7 +36,8 @@ jobs:
       - name: Prepare site directory
         run: |
           mkdir -p _site/app _site/docs
-          cp -r wasm/* claudon.py _site/app/
+          cp -r wasm/* _site/app/
+          python scripts/build_zipapp.py _site/app/claudon.pyz
           cp site/index.html README.md _site/
           cp -r docs/assets _site/docs/
           touch _site/.nojekyll

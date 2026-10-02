@@ -8,14 +8,14 @@ a human approval gate in front of PyPI.
 ```
  PR "feat: ..." ──squash──▶ main ──▶ release-please keeps ONE open PR
                                       "chore(main): release 0.2.0"
-                                      (bumps claudon.py + package.json, writes CHANGELOG.md)
+                                      (bumps claudon/__init__.py + package.json, writes CHANGELOG.md)
                                                 │ maintainer reviews + merges
                                                 ▼
                        tag v0.2.0 + GitHub Release (notes from the changelog)
                                                 │ same workflow dispatches, on the tag:
                      ┌──────────────────────────┴───────────────────────────┐
                      ▼                                                      ▼
-   release.yml: preflight → full CI → build                  nuitka-build.yml: binaries, SHA256SUMS,
+   release.yml: preflight → full CI → build                  nuitka-build.yml: binaries, claudon.pyz, SHA256SUMS,
      ├─ PyPI (trusted publishing, `pypi` env approval)         attestations → attached to the Release
      └─ npm (provenance)
 ```
@@ -31,7 +31,7 @@ a human approval gate in front of PyPI.
 
 Valid for npm as-is; PyPI normalises it per PEP 440 (`0.2.0-beta.1` → `0.2.0b1`). Git tags are `v` + version.
 
-The version lives in `claudon.py` (`__version__`, marked `# x-release-please-version`; `pyproject.toml` reads it
+The version lives in `claudon/__init__.py` (`__version__`, marked `# x-release-please-version`; `pyproject.toml` reads it
 dynamically) and `package.json`. release-please updates both; `scripts/check_version.py` (CI + every publish) fails if
 they disagree or the tag doesn't match.
 
@@ -59,7 +59,8 @@ a commit body that lands on `main`.
 3. **Merge it** (squash). The `Release Please` workflow tags `vX.Y.Z`, creates the GitHub Release, and dispatches
    `release.yml` (`npm_tag=latest`, or `beta` for a tag containing `-`) and `nuitka-build.yml` on the tag.
 4. **Approve the PyPI publish** when the `pypi` environment asks for it (*Actions → the run → Review deployments*).
-5. **Verify**: `uvx claudon@X.Y.Z --version`, `npx @infenia/claudon@X.Y.Z --version`, and the Release has binaries + `SHA256SUMS`.
+5. **Verify**: `uvx claudon@X.Y.Z --version`, `npx @infenia/claudon@X.Y.Z --version`, and the Release has the 4 binaries, `claudon.pyz` and `SHA256SUMS` (the workflow fails if one is missing), then `curl -fsSL .../install.sh | CLAUDON_VERSION=vX.Y.Z sh && claudon --version`.
+   Until `nuitka-build.yml` finishes the new Release has no assets, so `install.sh` fails for that version; re-dispatch it if it failed.
 
 Both publish workflows still require a tag ref, re-check the tag against the package versions, and run the full CI
 suite first. Nothing publishes from a branch.
@@ -100,7 +101,7 @@ gh workflow run nuitka-build.yml --ref vX.Y.Z
 this. Use `publish_pypi=false` / `publish_npm=false` to re-run only the registry that failed: **a published version
 can never be re-uploaded**, so never re-run a registry that already succeeded.
 
-If release-please itself is unavailable, bump `claudon.py` and `package.json` in a PR, run `python scripts/check_version.py`,
+If release-please itself is unavailable, bump `claudon/__init__.py` and `package.json` in a PR, run `python scripts/check_version.py`,
 merge, `git tag vX.Y.Z && git push origin vX.Y.Z`, then dispatch as above.
 
 ---
@@ -142,5 +143,5 @@ Versions are immutable, so roll forward:
 | No release PR appears | No releasable commit since the last tag (`chore:`/`ci:` don't count), or the Actions PR setting above is off. |
 | Release PR has no CI checks | It was opened by `GITHUB_TOKEN`; set `RELEASE_PLEASE_TOKEN` or close/reopen the PR. |
 | Merged release PR but nothing published | Check the `Release Please` run's dispatch step; re-run the manual commands above on the tag. |
-| `release.yml` fails at preflight | Tag doesn't match `claudon.py`/`package.json`, or wrong `npm_tag` for the tag type. |
+| `release.yml` fails at preflight | Tag doesn't match `claudon/__init__.py`/`package.json`, or wrong `npm_tag` for the tag type. |
 | PyPI step waits forever | It is waiting for the `pypi` environment approval. |

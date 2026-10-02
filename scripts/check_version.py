@@ -17,10 +17,10 @@ VERSION_RE = re.compile(r'\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?')
 
 
 def module_version():
-    for node in ast.parse((ROOT / 'claudon.py').read_text(encoding='utf-8')).body:
+    for node in ast.parse((ROOT / 'claudon' / '__init__.py').read_text(encoding='utf-8')).body:
         if isinstance(node, ast.Assign) and any(getattr(t, 'id', None) == '__version__' for t in node.targets):
             return node.value.value
-    raise SystemExit('claudon.py: __version__ not found')
+    raise SystemExit('claudon/__init__.py: __version__ not found')
 
 
 def check(tag=None):

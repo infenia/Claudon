@@ -30,10 +30,13 @@ Homepage = "https://github.com/infenia/claudon"
 Repository = "https://github.com/infenia/claudon"
 
 [project.scripts]
-claudon = "claudon:main"
+claudon = "claudon.cli:main"
 
 [tool.setuptools]
-py-modules = ["claudon"]
+packages = ["claudon"]
+
+[tool.setuptools.package-data]
+claudon = ["dashboard.html"]
 
 [tool.setuptools.dynamic]
 version = { attr = "claudon.__version__" }   # single source; scripts/check_version.py keeps package.json in sync

@@ -1,6 +1,8 @@
 import importlib.util
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -41,6 +43,14 @@ class TestScripts(unittest.TestCase):
         self.assertTrue(names)
         for name in names:
             self.assertTrue(callable(getattr(claudon, name, None)), name)
+
+    def test_zipapp_runs_and_bundles_dashboard(self):
+        out = Path(tempfile.mkdtemp()) / "claudon.pyz"
+        load_script("build_zipapp").build(out)
+        report = out.parent / "r.html"
+        subprocess.run([sys.executable, str(out), str(ROOT_DIR / "tests" / "fixtures"), "-o", str(report)],
+                       check=True, capture_output=True)
+        self.assertIn("fix the login bug", report.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
