@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/infenia/claudon/compare/v0.2.1...v0.3.0) (2026-10-02)
+
+
+### Features
+
+* deploy WASM dashboard to GitHub Pages ([#13](https://github.com/infenia/claudon/issues/13)) ([1f14646](https://github.com/infenia/claudon/commit/1f14646b8c2058dca76a184ab2305811b24dbeda))
+* README home page on Pages, dark screenshot, Esc closes task dialog ([#20](https://github.com/infenia/claudon/issues/20)) ([38ac9b5](https://github.com/infenia/claudon/commit/38ac9b5a5aaa69ea25e1ae2d1c39938191ba1075))
+* restructure into claudon package ([#23](https://github.com/infenia/claudon/issues/23)) ([fb43cdd](https://github.com/infenia/claudon/commit/fb43cdd3d63d292a618dbe721eae991879fed4db))
+
+
+### Bug Fixes
+
+* refresh PyPI/Python badge URLs to bypass cached error ([#21](https://github.com/infenia/claudon/issues/21)) ([9010018](https://github.com/infenia/claudon/commit/9010018db79b8c3532899b75d1b37db5cd9c978d))
+
 ## [0.2.1](https://github.com/infenia/claudon/compare/v0.2.0...v0.2.1) (2026-10-01)
 
 
