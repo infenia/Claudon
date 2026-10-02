@@ -40,7 +40,7 @@ The answers are already in `~/.claude`. Claudon reads them and shows you:
 |---|---|
 | **Where time went** | model vs. tools vs. permission waits vs. idle, per task, turn and subagent |
 | **What it cost** | token usage × list prices per model generation (override with `--pricing`) |
-| **What went wrong** | automatic detection of tool failures, slow turns and retry loops |
+| **What went wrong** | ranked findings with a concrete fix each: tool failures and retry loops, permission-prompt waits, expired prompt caches, repeated reads, edit churn, context bloat, trends |
 | **How hard it thought** | thinking time vs. thinking tokens |
 | **Safe to share** | `--redact` strips prompts, paths, commands and project names |
 
@@ -169,7 +169,7 @@ claudon --redact -o share-me.html               # safe to attach to an issue
 - **Task breakdown:** each human prompt through to completion.
 - **Turns & subagents:** model API calls vs. agent delegation.
 - **Time, thinking & cost:** the breakdowns described [above](#why-claudon).
-- **Bottlenecks:** failures, slow turns and loops, surfaced automatically.
+- **Bottlenecks:** findings ranked worst first, each with the time and spend at stake, why it matters and how to fix it.
 
 The report is one self-contained `.html` file: no server, no external assets.
 

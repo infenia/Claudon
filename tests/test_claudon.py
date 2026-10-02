@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import sys
@@ -21,6 +22,24 @@ def assistant(ts, mid, model="claude-sonnet-5-5", content=()):
     return {"timestamp": f"2026-01-01T12:00:{ts:02d}Z", "type": "assistant",
             "message": {"id": mid, "model": model, "usage": {"input_tokens": 100, "output_tokens": 50},
                         "content": list(content)}}
+
+
+def at(sec):
+    """ISO timestamp `sec` seconds after 2026-01-01T12:00:00Z (the helpers above only reach 59 s)."""
+    return (datetime.datetime(2026, 1, 1, 12, tzinfo=datetime.timezone.utc) + datetime.timedelta(seconds=sec)).isoformat()
+
+
+def call(sec, mid, tools=(), usage=None):
+    """assistant record at `sec` issuing tool_use blocks [(id, name, input)]"""
+    return {"timestamp": at(sec), "type": "assistant",
+            "message": {"id": mid, "model": "claude-sonnet-5-5", "usage": usage or {"input_tokens": 100, "output_tokens": 50},
+                        "content": [{"type": "tool_use", "id": i, "name": n, "input": inp} for i, n, inp in tools]}}
+
+
+def results(sec, *res):
+    """user record at `sec` carrying tool_results [(id, is_error)]"""
+    return {"timestamp": at(sec), "type": "user", "message": {"content": [
+        {"type": "tool_result", "tool_use_id": i, "content": "boom" if e else "ok", "is_error": e} for i, e in res]}}
 
 
 def strict_json(const):
@@ -136,8 +155,57 @@ class TestClaudon(unittest.TestCase):
                 res("t1", "The user doesn't want to proceed with this tool use.", True),
                 res("t2", "command not found", True),
                 res("t3", "log: job interrupted at 12:00", False)]}}])
-        n, err, _, _, stopped = discover.build(str(f))["tasks"][0]["tool_stats"]["Bash"]
-        self.assertEqual((n, err, stopped), (3, 1, 1))
+        n, err, _, _, stopped, done = discover.build(str(f))["tasks"][0]["tool_stats"]["Bash"]
+        self.assertEqual((n, err, stopped, done), (3, 1, 1, 3))
+
+    def test_approval_wait_on_instant_tools(self):
+        f = self.write("p/proj/s.jsonl", [
+            user(0, "hi"), call(1, "m1", [("e1", "Edit", {"file_path": "a.py"}), ("r1", "Read", {"file_path": "a.py"})]),
+            results(41, ("e1", False)), results(42, ("r1", False)),       # 40 s on Edit = a permission prompt
+            call(43, "m2", [("b1", "Bash", {"command": "sleep 30"})]), results(80, ("b1", False))])  # slow Bash is real work
+        self.assertEqual(discover.build(str(f))["tasks"][0]["approval_s"], 81)
+
+    def test_cache_miss_after_idle_gap(self):
+        warm = {"input_tokens": 10, "output_tokens": 10, "cache_read_input_tokens": 50000, "cache_creation_input_tokens": 1000}
+        cold = {"input_tokens": 10, "output_tokens": 10, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 51000}
+        f = self.write("p/proj/s.jsonl", [user(0, "hi"), call(5, "m1", usage=warm), call(20, "m2", usage=warm),
+                                          call(400, "m3", usage=cold)])      # 6 min later: the 5 min cache expired
+        n, tokens, usd = discover.build(str(f))["tasks"][0]["cache_miss"]
+        self.assertEqual((n, tokens), (1, 51000))
+        self.assertAlmostEqual(usd, 51000 * 2 * 1.25 / 1e6)
+
+    def test_compaction_shrink_is_not_a_cache_miss(self):
+        big = {"input_tokens": 10, "output_tokens": 10, "cache_read_input_tokens": 50000}
+        small = {"input_tokens": 10, "output_tokens": 10, "cache_creation_input_tokens": 5000}
+        f = self.write("p/proj/s.jsonl", [user(0, "hi"), call(5, "m1", usage=big), call(400, "m2", usage=small)])
+        self.assertEqual(discover.build(str(f))["tasks"][0]["cache_miss"], [0, 0, 0])
+
+    def test_repeated_calls_edit_churn_and_error_streak(self):
+        recs, n = [user(0, "hi")], 0
+        def tool(name, inp, err=False):
+            nonlocal n
+            n += 1
+            recs.extend([call(n * 2, f"m{n}", [(f"t{n}", name, inp)]), results(n * 2 + 1, (f"t{n}", err))])
+        for _ in range(3):
+            tool("Read", {"file_path": "a.py"})                         # same read three times: 2 repeats
+        tool("Read", {"file_path": "a.py", "offset": 200})              # paging further is not a repeat
+        for _ in range(4):
+            tool("Edit", {"file_path": "a.py", "old_string": "x", "new_string": "y"})
+        for _ in range(3):
+            tool("Bash", {"command": "make"}, err=True)
+        tool("Bash", {"command": "make"})
+        t = discover.build(str(self.write("p/proj/s.jsonl", recs)))["tasks"][0]
+        self.assertEqual((t["dup_calls"], t["dups"]), (2, [["Read", "a.py", 3]]))
+        self.assertEqual(t["churn"], [["a.py", 4]])
+        self.assertEqual(t["err_streak"], 3)
+        redact(t_data := {"tasks": [t], "sessions": []})
+        self.assertEqual((t_data["tasks"][0]["dups"], t_data["tasks"][0]["churn"]), ([["Read", "", 3]], [["", 4]]))
+
+    def test_user_interrupts_are_counted(self):
+        stop = {"timestamp": at(8), "type": "user", "message": {"content": [{"type": "text", "text": "[Request interrupted by user]"}]}}
+        f = self.write("p/proj/s.jsonl", [user(0, "hi"), call(5, "m1"), stop, call(9, "m2")])
+        t = discover.build(str(f))["tasks"]
+        self.assertEqual((len(t), t[0]["interrupts"]), (1, 1))      # an interrupt is not a new task
 
     def test_cost_mix_sums_to_cost(self):
         a = assistant(5, "m1", model="claude-opus-5-5")

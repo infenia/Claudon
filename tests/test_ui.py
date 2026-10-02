@@ -1,4 +1,6 @@
+import datetime
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -13,6 +15,40 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from claudon import discover, render
+
+
+def at(sec):
+    return (datetime.datetime(2025, 1, 1, 12, tzinfo=datetime.timezone.utc) + datetime.timedelta(seconds=sec)).isoformat()
+
+
+class Transcript:
+    """Builds a synthetic session: prompts, and model turns whose tool calls finish after a given number of seconds."""
+    def __init__(self):
+        self.recs, self.t, self.n = [], 0, 0
+
+    def prompt(self, text):
+        self.t += 60
+        self.recs.append({"timestamp": at(self.t), "type": "user", "message": {"content": text}})
+
+    def turn(self, *tools, secs=1):
+        """tools: (name, input, failed); all run in parallel for `secs` seconds"""
+        self.n += 1
+        self.t += 1
+        ids = [f"t{self.n}_{i}" for i in range(len(tools))]
+        self.recs.append({"timestamp": at(self.t), "type": "assistant", "message": {
+            "id": f"m{self.n}", "model": "claude-sonnet-5-5", "usage": {"input_tokens": 100, "output_tokens": 50},
+            "content": [{"type": "tool_use", "id": i, "name": n, "input": inp} for i, (n, inp, _) in zip(ids, tools)]}})
+        self.t += secs
+        self.recs.append({"timestamp": at(self.t), "type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": i, "content": "boom" if e else "ok", "is_error": e} for i, (_, _, e) in zip(ids, tools)]}})
+
+    def report(self, path):
+        f = path / "projects" / "proj" / "s.jsonl"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("".join(json.dumps(r) + "\n" for r in self.recs), encoding="utf-8")
+        out = path / "findings.html"
+        out.write_text(render.render_html(discover.build(str(path / "projects"))), encoding="utf-8")
+        return out
 
 
 @unittest.skipUnless(PLAYWRIGHT_AVAILABLE, "Playwright is not installed")
@@ -304,6 +340,56 @@ class TestClaudonUI(unittest.TestCase):
         self.assertEqual(rows(), 15)
         card.locator(".more button", has_text="show all").click()
         self.assertEqual(rows(), 20)
+
+    def open_bottlenecks(self, tr):
+        self.page.goto(tr.report(self.tmp_path / "f").as_uri())
+        self.page.click("nav button:text-is('Bottlenecks')")
+        return lambda key: self.page.locator(f"#f-{key}")
+
+    def test_findings_target_the_right_tasks_and_say_how_to_fix(self):
+        tr = Transcript()
+        tr.prompt("flaky build")
+        for i in range(10):
+            tr.turn(("Bash", {"command": "make"}, i % 3 == 0))             # 4 of 10 fail
+        for _ in range(10):
+            tr.turn(("Edit", {"file_path": "/src/app/main.py"}, False))   # churn: 10 edits to one file
+        for _ in range(6):
+            tr.turn(("Read", {"file_path": "/src/app/util.py"}, False))   # 5 identical repeats
+        tr.prompt("approve edits")
+        for _ in range(3):
+            tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)  # 150 s waiting on permission prompts
+        tr.prompt("clean task")
+        tr.turn(*[("Bash", {"command": f"job {i}"}, False) for i in range(3)], secs=30)   # 3 parallel calls
+        finding = self.open_bottlenecks(tr)
+
+        errors = finding("tool-errors")
+        self.assertIn("Bash: 4/13 failed", errors.inner_text())
+        chips = errors.locator(".chip").all_inner_texts()
+        self.assertEqual([c.split(" · ")[0] for c in chips], ["flaky build"])     # not tasks without Bash errors
+        self.assertIn("Fix:", errors.inner_text())
+        self.assertIn("CLAUDE.md", errors.locator(".fix code").all_inner_texts())
+
+        self.assertIn("main.py ×10", finding("churn").inner_text())
+        self.assertIn("5 repeated identical", finding("repeats").inner_text())
+        approval = finding("approval")
+        self.assertIn("2m 30s", approval.inner_text())
+        self.assertIn("permissions.allow", approval.inner_text())
+        self.assertEqual(approval.locator(".chip").all_inner_texts()[0].split(" · ")[0], "approve edits")
+
+        share = re.search(r"\((\d+)% of summed tool-call time\)", finding("slow-tool").inner_text())
+        self.assertLessEqual(int(share.group(1)), 100)   # parallel calls used to push this past 100%
+
+        sev = self.page.locator(".find").evaluate_all("els => els.map(e => e.classList[1])")
+        self.assertEqual(sev, sorted(sev, key=["hi", "mid", "info"].index))   # worst first
+
+    def test_finding_chip_opens_task_detail_with_signals(self):
+        tr = Transcript()
+        tr.prompt("approve edits")
+        for _ in range(3):
+            tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
+        finding = self.open_bottlenecks(tr)
+        finding("approval").locator(".chip").first.click()
+        self.assertIn("Signals: approval waits 2m 30s", self.page.locator("#mbody").inner_text())
 
     def test_dark_mode_color_scheme(self):
         """Test theme dark mode CSS variable overrides for background and card colors."""

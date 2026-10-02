@@ -125,8 +125,15 @@
   "tasks": [
    {
     "agent_s": 16.0,
+    "approval_s": 0,
+    "cache_miss": [
+     0,
+     0,
+     0.0
+    ],
     "calls": 3,
     "cc_tok": 300,
+    "churn": [],
     "compacts": [],
     "cost": 0.01175,
     "cost_mix": [
@@ -151,10 +158,14 @@
      ]
     ],
     "ctx_max": 3300,
+    "dup_calls": 0,
+    "dups": [],
     "efforts": [],
+    "err_streak": 1,
     "est": false,
     "id": "session-1#0",
     "in_tok": 1310,
+    "interrupts": 0,
     "model_s": 14.0,
     "models": {
      "claude-fable-5-1": [
@@ -298,21 +309,24 @@
       1,
       18.0,
       18.0,
-      0
+      0,
+      1
      ],
      "Bash": [
       1,
       0,
       2.0,
       2.0,
-      0
+      0,
+      1
      ],
      "Read": [
       1,
       0,
       2.0,
       2.0,
-      0
+      0,
+      1
      ]
     },
     "tools": 3,
@@ -322,8 +336,15 @@
    },
    {
     "agent_s": 0.0,
+    "approval_s": 0,
+    "cache_miss": [
+     0,
+     0,
+     0.0
+    ],
     "calls": 1,
     "cc_tok": 0,
+    "churn": [],
     "compacts": [
      [
       10.0,
@@ -347,10 +368,14 @@
      ]
     ],
     "ctx_max": 10,
+    "dup_calls": 0,
+    "dups": [],
     "efforts": [],
+    "err_streak": 0,
     "est": true,
     "id": "session-1#2",
     "in_tok": 10,
+    "interrupts": 0,
     "model_s": 4.0,
     "models": {
      "mystery-model": [
@@ -522,8 +547,15 @@
   "tasks": [
    {
     "agent_s": 16.0,
+    "approval_s": 0,
+    "cache_miss": [
+     0,
+     0,
+     0.0
+    ],
     "calls": 3,
     "cc_tok": 300,
+    "churn": [],
     "compacts": [],
     "cost": 0.01175,
     "cost_mix": [
@@ -548,10 +580,14 @@
      ]
     ],
     "ctx_max": 3300,
+    "dup_calls": 0,
+    "dups": [],
     "efforts": [],
+    "err_streak": 1,
     "est": false,
     "id": "session-1#0",
     "in_tok": 1310,
+    "interrupts": 0,
     "model_s": 14.0,
     "models": {
      "claude-fable-5-1": [
@@ -695,21 +731,24 @@
       1,
       18.0,
       18.0,
-      0
+      0,
+      1
      ],
      "Bash": [
       1,
       0,
       2.0,
       2.0,
-      0
+      0,
+      1
      ],
      "Read": [
       1,
       0,
       2.0,
       2.0,
-      0
+      0,
+      1
      ]
     },
     "tools": 3,
@@ -719,8 +758,15 @@
    },
    {
     "agent_s": 0.0,
+    "approval_s": 0,
+    "cache_miss": [
+     0,
+     0,
+     0.0
+    ],
     "calls": 1,
     "cc_tok": 0,
+    "churn": [],
     "compacts": [
      [
       10.0,
@@ -744,10 +790,14 @@
      ]
     ],
     "ctx_max": 10,
+    "dup_calls": 0,
+    "dups": [],
     "efforts": [],
+    "err_streak": 0,
     "est": true,
     "id": "session-1#2",
     "in_tok": 10,
+    "interrupts": 0,
     "model_s": 4.0,
     "models": {
      "mystery-model": [
