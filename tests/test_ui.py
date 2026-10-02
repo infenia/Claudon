@@ -566,6 +566,40 @@ class TestClaudonUI(unittest.TestCase):
         self.page.click("nav button:text-is('Ask AI')")
         self.assertEqual(self.page.locator(".msg").count(), 0)
 
+    def test_chat_suggestions_come_from_findings_then_the_model(self):
+        reply = """(q, o) => JSON.stringify({questions: q.includes('follow-up')
+            ? ['Which Bash calls failed?', 'How long did make take?']
+            : ['Why is make so slow here?', 'What did [nope#4] cost?', 'not a question', 'Which task used the most turns?']})"""
+        self.chat_page("q => ['Mostly make.']")
+        self.page.add_init_script(f"window.__reply = {reply};")
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.page.locator(".sgl", has_text="Suggested by on-device AI").wait_for()
+        qs = self.page.locator("#sugg [data-q]").all_inner_texts()
+        self.assertEqual(qs, ["Why is make so slow here?", "Which task used the most turns?"])   # invented id and non-question dropped
+        prompt = next(c for c in self.page.evaluate("__calls") if c[0] == "prompt")
+        self.assertIn("Report data for the current view", prompt[1])
+        self.assertEqual(prompt[2]["responseConstraint"]["properties"]["questions"]["maxItems"], 6)
+        self.page.locator("#sugg [data-q]").first.click()
+        self.page.locator("#sugg [data-q]", has_text="Which Bash calls failed?").wait_for()     # follow-ups for that answer
+        self.assertNotIn("Why is make so slow here?", self.page.locator("#sugg").inner_text())  # already asked
+        self.page.reload()                                                               # cached per view: no new request
+        self.page.click("nav button:text-is('Ask AI')")
+        self.assertIn("Which Bash calls failed?", self.page.locator("#sugg").inner_text())
+        self.assertEqual(sum(c[0] == "prompt" for c in self.page.evaluate("__calls")), 0)
+
+    def test_chat_suggestions_without_a_ready_model_use_the_findings(self):
+        tr = Transcript()
+        tr.prompt("approve edits")
+        for _ in range(3):
+            tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "downloadable") + "window.__reply = () => { throw new Error('no download without a click'); };")
+        self.page.goto(tr.report(self.tmp_path / "s").as_uri())
+        self.page.click("nav button:text-is('Ask AI')")
+        qs = self.page.locator("#sugg [data-q]").all_inner_texts()
+        self.assertEqual(qs[:2], ["What should I fix first?", "How much time do permission prompts cost me, and how do I cut it?"])
+        self.assertFalse(any(c[0] == "create" for c in self.page.evaluate("__calls")))    # nothing starts a download on its own
+
     def test_ai_shows_activity_even_with_reduced_motion(self):
         """Linux desktops with animations off report reduced motion: the AI must still visibly work."""
         ctx = self.browser.new_context(reduced_motion="reduce")

@@ -78,7 +78,8 @@ nav button.ait svg{width:12px;height:12px;fill:var(--think);margin-right:5px;ver
 .sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px;max-width:840px;margin:20px auto 0;text-align:left}
 .sq{font:inherit;font-size:13px;line-height:1.4;text-align:left;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;cursor:pointer;display:flex;gap:8px;align-items:flex-start;transition:border-color .15s,transform .15s,box-shadow .15s}
 .sq:hover{border-color:var(--think);transform:translateY(-1px);box-shadow:0 8px 18px -14px var(--ai-glow)}.sq svg{flex:none;width:13px;height:13px;margin-top:3px;fill:var(--think)}
-.follow{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:thin}.follow .sq{white-space:nowrap;padding:5px 11px;border-radius:999px;font-size:12px;align-items:center}.follow .sq svg{margin:0}
+.sgl{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--mute);white-space:nowrap;margin-right:4px}.sgl svg{width:11px;height:11px;fill:var(--think)}
+.sgfoot{margin-top:10px;min-height:16px}.follow{align-items:center;display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:thin}.follow .sq{white-space:nowrap;padding:5px 11px;border-radius:999px;font-size:12px;align-items:center}.follow .sq svg{margin:0}
 .note{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--mute);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-top:12px}.note svg{flex:none;width:14px;height:14px;fill:var(--think);margin-top:1px}
 .composer{display:flex;align-items:flex-end;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 6px 6px 14px;transition:border-color .15s,box-shadow .15s}
 .composer:focus-within{border-color:var(--think);box-shadow:0 0 0 3px rgba(139,92,246,.16)}
@@ -418,7 +419,7 @@ async function ask(q){q=q.trim();if(!q||CHAT.ctl)return;CHAT.draft='';const ctl=
   for await(const c of s.promptStreaming(`Data for this question (JSON):\n${JSON.stringify(data)}\n\nQuestion: ${q}`,{signal:ctl.signal})){
    a.text+=c;const el=$('#m'+(CHAT.msgs.length-1)),box=$('#msgs');if(!el)continue;
    const pinned=box.scrollHeight-box.scrollTop-box.clientHeight<90;el.innerHTML=fmtAnswer(a.text,1);if(pinned)box.scrollTop=box.scrollHeight}
-  CHAT.usage=s.contextWindow?s.contextUsage/s.contextWindow:null}
+  CHAT.usage=s.contextWindow?s.contextUsage/s.contextWindow:null;if(a.text&&!ctl.signal.aborted)aiFollowUps(a,s)}
  catch(e){if(e.name!='AbortError'){a.err=1;a.text=e.name=='NotAllowedError'?'The browser wants a click to start the model; ask again.':`The on-device model failed: ${e.message||e.name||e}`}
   else if(!a.text)a.text='(stopped)'}
  CHAT.ctl=null;saveChat();render();$('#q')?.focus()}
@@ -430,10 +431,7 @@ function fmtAnswer(s,live){let h='',list='';const close=()=>{if(list)h+=`</${lis
   if(m){const k=m[1]?'ol':'ul';if(list!=k){close();h+=`<${k}>`;list=k}h+=`<li>${inl(m[2])}</li>`}else{close();if(line.trim())h+=`<p>${inl(line)}</p>`}}
  close();if(!live)return h;const c='<span class="caret" aria-hidden="true"></span>';         // streaming caret ends the last line
  return /<\/(p|li)>(<\/[ou]l>)?$/.test(h)?h.replace(/(<\/(?:p|li)>)((?:<\/[ou]l>)?)$/,c+'$1$2'):h+c}
-function chatView(){const fs=findings(F),top=[...F].sort((x,y)=>y.cost-x.cost)[0],projs=[...new Set(F.map(t=>t.proj))],busy=!!CHAT.ctl,last=CHAT.msgs.length-1;
- const sugg=['What should I fix first?',`Why did [${top.id}] cost so much?`,'Where does my idle time come from?','Which tools fail most often, and why does it matter?',
-  projs.length>1?`Which tasks in ${projs[0]} were slowest?`:'Which tasks were slowest this week?',fs.some(f=>f.key=='cache-expiry')?'How much did expired caches cost me?':'How could I spend less?'];
- const sq=q=>`<button type="button" class="sq" data-q="${esc(q)}">${IC.spark}<span>${esc(q)}</span></button>`;
+function chatView(){const busy=!!CHAT.ctl,last=CHAT.msgs.length-1;
  const msgs=CHAT.msgs.map((m,i)=>m.role=='user'?`<div class="msg me"><div class="bub">${esc(m.text)}</div></div>`:
   `<div class="msg bot${m.err?' err':''}"><div class="spark sm">${IC.spark}</div><div class="body"><div class="who">Claudon AI <span>· on-device</span></div>`+
   `<div class="ans" id="m${i}">${m.text?fmtAnswer(m.text,busy&&i==last):`<span class="wait" role="status"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Thinking · ${since()}</span>`}</div>`+
@@ -446,14 +444,53 @@ function chatView(){const fs=findings(F),top=[...F].sort((x,y)=>y.cost-x.cost)[0
   `${CHAT.msgs.length?`<button class="ghost tip-r" data-chat="clear"${tip('Delete this conversation from this browser and start fresh')}>${IC.clear}Clear chat</button>`:''}</div>`+
   (AI.lm=='available'?'':`<div class="note">${IC.info}<span>Your first question asks the browser to download its built-in model once (a few GB). After that it runs on this computer, offline too; nothing is sent anywhere.</span></div>`)+
   `<div class="msgs" id="msgs" aria-live="polite">${msgs||`<div class="chat-empty"><div class="spark lg">${IC.spark}</div><h3>What would you like to know?</h3>`+
-   `<p class="s">Answers use the numbers in this report, run on this computer, and link to the tasks they cite.</p><div class="sgrid">${sugg.map(sq).join('')}</div></div>`}</div>`+
+   `<p class="s">Answers use the numbers in this report, run on this computer, and link to the tasks they cite.</p><div id="sugg">${suggHtml()}</div></div>`}</div>`+
   (CHAT.overflow?'<div class="aierr" style="margin:0 0 10px">The conversation no longer fits in the model\'s memory, so the oldest messages are being forgotten. Clear the chat to start fresh.</div>':'')+
-  (CHAT.msgs.length&&!busy?`<div class="follow">${sugg.slice(0,5).map(sq).join('')}</div>`:'')+
+  (CHAT.msgs.length&&!busy?`<div id="sugg">${suggHtml()}</div>`:'')+
   `<form id="ask" class="composer"><textarea id="q" rows="1" aria-label="Ask a question" placeholder="Ask about time, cost, tools, a project or a task…" ${busy?'disabled':''}></textarea>`+
   (busy?`<button type="button" class="send stop tip-r tip-up" data-chat="stop" aria-label="Stop"${tip('Stop the answer')}>${IC.stop}</button>`:`<button class="send tip-r tip-up" aria-label="Send"${tip('Send (Enter)')}>${IC.send}</button>`)+'</form>'+
   `<div class="s hint"><span><kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</span><span>Answers come from your browser's model and can be wrong; check the linked tasks.</span></div></div>`}
+// ---- suggested questions: instant ones built from the findings, then ones the on-device model writes for this view ----
+const FQ={approval:'How much time do permission prompts cost me, and how do I cut it?','tool-errors':'Which tools fail most often, and why?',
+ streaks:'Where did the agent get stuck retrying the same step?',repeats:'Which files did the agent read over and over?',churn:'Which files did the agent keep re-editing?',
+ context:'Which tasks let the context grow too large, and what did it cost?','cache-expiry':'How much did expired prompt caches cost me?',
+ 'cache-writes':'Why is so much of my spend on cache writes?',idle:'Where does my idle time come from?',stops:'Why did I have to stop the agent so often?',
+ thinking:'Which tasks spent the most time thinking?',outliers:'Which tasks took far more turns than usual?',subagents:'Are subagents worth what they cost me?',
+ trend:'What changed between my earlier and later tasks?','slow-tool':'Which tool calls were slowest, and why?'};
+function baseSugg(F,fs){const top=[...F].sort((x,y)=>y.cost-x.cost)[0],out=['What should I fix first?'];
+ for(const f of fs){if(FQ[f.key]&&!out.includes(FQ[f.key]))out.push(FQ[f.key]);if(out.length>=4)break}
+ out.push(`Why did [${top.id}] cost so much?`);
+ const projs=[...new Set(F.map(t=>t.proj))];if(projs.length>1)out.push(`Which tasks in ${projs[0]} were slowest?`);
+ return out.slice(0,6)}
+// model output -> usable questions: short, ending in "?", unique, and citing only tasks that exist
+const cleanQs=(l,n)=>[...new Set((Array.isArray(l)?l:[]).filter(q=>typeof q=='string').map(q=>q.replace(/\s+/g,' ').trim())
+ .filter(q=>q.length>=8&&q.length<=140&&q.endsWith('?')&&[...q.matchAll(/\[([^\]\s]+#\d+)\]/g)].every(m=>D.tasks.some(t=>t.id==m[1]))))].slice(0,n);
+const qSchema=(n)=>({type:'object',required:['questions'],properties:{questions:{type:'array',minItems:2,maxItems:n,items:{type:'string'}}}});
+const suggKey=()=>'sugg:'+viewKey()+':'+hash(findings(F).map(f=>f.title).join());
+async function aiSuggest(){if(AI.lm!='available'||CHAT.sg?.key==suggKey())return;     // only once the model is ready: no download without a click
+ const key=suggKey(),hit=store.get(key);CHAT.sg={key,list:hit,busy:!hit};if(hit)return showSugg();
+ try{const s=await (await lmBase()).clone();
+  try{const q=await fit(s,l=>`Report data for the current view (JSON):\n${JSON.stringify(facts(F,findings(F),l))}\n\nWrite 6 short questions (at most 12 words each) `+
+    'that this developer would most want to ask about these sessions, most useful first. Base them on the biggest findings and costs in the data. '+
+    'You may refer to a task by its id in square brackets.');
+   const l=cleanQs(JSON.parse(await s.prompt(q,{responseConstraint:qSchema(6)}))?.questions,6);
+   if(CHAT.sg.key==key&&l.length>=2){CHAT.sg.list=l;store.set(key,l)}}finally{s.destroy()}}
+ catch{}                                                    // keep the findings-based questions
+ if(CHAT.sg.key==key){CHAT.sg.busy=false;showSugg()}}
+// follow-ups for one answer, from a copy of the conversation so the chat itself is untouched
+async function aiFollowUps(a,s){try{const c=await s.clone();
+ try{const l=cleanQs(JSON.parse(await c.prompt('Suggest 3 short follow-up questions (at most 12 words each) the developer might ask next about this answer and the report data.',
+   {responseConstraint:qSchema(3)}))?.questions,3);if(l.length){a.follow=l;saveChat();showSugg()}}finally{c.destroy()}}catch{}}
+const sq=q=>`<button type="button" class="sq" data-q="${esc(q)}">${IC.spark}<span>${esc(q)}</span></button>`;
+function suggHtml(){const lastA=[...CHAT.msgs].reverse().find(m=>m.role=='assistant'),asked=new Set(CHAT.msgs.filter(m=>m.role=='user').map(m=>m.text));
+ const ai=CHAT.sg?.key==suggKey()&&CHAT.sg.list,list=(lastA?.follow||[]).concat(ai||baseSugg(F,findings(F))).filter(q=>!asked.has(q));
+ const lbl=lastA?.follow||ai?`<span class="sgl"${tip('Questions written for this view by the on-device model, from the report data')}>${IC.spark}Suggested by on-device AI</span>`:
+  CHAT.sg?.busy?`<span class="sgl">${IC.spark}Writing suggestions for this view…</span>`:'';
+ const u=[...new Set(list)];
+ return CHAT.msgs.length?`<div class="follow">${lbl}${u.slice(0,5).map(sq).join('')}</div>`:`<div class="sgrid">${u.slice(0,6).map(sq).join('')}</div><div class="sgfoot">${lbl}</div>`}
+const showSugg=()=>{const el=$('#sugg');if(el&&!CHAT.ctl)el.innerHTML=suggHtml()};
 // after the chat view is drawn: newest message in sight, the draft and its height restored, focus in the composer
-function chatMounted(){const box=$('#msgs'),q=$('#q');if(box)box.scrollTop=box.scrollHeight;
+function chatMounted(){aiSuggest();const box=$('#msgs'),q=$('#q');if(box)box.scrollTop=box.scrollHeight;
  if(q){q.value=CHAT.draft;grow(q);if(!CHAT.ctl&&document.activeElement?.tagName!='INPUT'&&document.activeElement?.tagName!='SELECT')q.focus({preventScroll:true})}}
 const grow=q=>{q.style.height='auto';q.style.height=Math.min(q.scrollHeight,160)+'px'};
 document.addEventListener('input',e=>{if(e.target.id=='q'){CHAT.draft=e.target.value;grow(e.target)}});
