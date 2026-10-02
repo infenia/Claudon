@@ -68,7 +68,7 @@ function tbl(id,cols,rows,limit=200,click){
  return `<table><tr>${cols.map((c,i)=>`<th class="${c.n?'n':''}" data-s="${id}|${i}">${c.h}${s.i==i?(s.d<0?' ▾':' ▴'):''}</th>`).join('')}</tr>`+
  rows.slice(0,n).map(r=>`<tr class="${click?'c':''}" ${click?`data-task="${esc(click(r))}"`:''}>${cols.map(c=>`<td class="${c.n?'n':''}">${c.f(r)}</td>`).join('')}</tr>`).join('')+'</table>'+
  (rows.length>n?`<div class="more s">showing ${n} of ${rows.length}<button data-more="${id}|${limit}">show ${Math.min(limit,rows.length-n)} more</button><button data-more="${id}|all">show all</button></div>`:'')}
-const kpi=(k,v,s='')=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+const kpi=(k,v,s='')=>`<div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}</div></div>`;
 const A=a=>({wall:sum(a,t=>t.wall),model:sum(a,t=>t.model_s),tool:sum(a,t=>t.tool_s),agent:sum(a,t=>t.agent_s),user:sum(a,t=>t.user_s),wait:sum(a,t=>t.wait_s),
  calls:sum(a,t=>t.calls),sub:sum(a,t=>t.sub_calls),tools:sum(a,t=>t.tools),cost:sum(a,t=>t.cost),think:sum(a,t=>t.think_s),thinkTok:sum(a,t=>t.think_tok),
  out:sum(a,t=>t.out_tok),inp:sum(a,t=>t.in_tok),cr:sum(a,t=>t.cr_tok),cc:sum(a,t=>t.cc_tok)});
@@ -139,7 +139,7 @@ function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
  return `<h2 style="font-size:16px">${esc(t.title||'Task')} <span class="s">· ${esc(t.proj)} · ${new Date(t.start*1000).toLocaleString()} · ${esc(t.id)}</span></h2><div class="pre">${esc(t.prompt)}</div>
  <div class="grid" style="margin:12px 0">${kpi('Wall',T(w))}${kpi('Turns',t.calls,t.sub_calls+' subagent calls')}${kpi('Tool calls',t.tools)}${kpi('Thinking',T(t.think_s),N(t.think_tok)+' tok')}${kpi('Cost',$$(t.cost)+(t.est?'*':''),'subagents '+$$(t.sub_cost))}${kpi('Peak context',N(t.ctx_max),t.compacts.length+' compactions')}</div>
  ${bar(t)}<div style="height:6px"></div>${legend}<h2 style="margin-top:14px">Timeline <span class="s">(purple = thinking portion of a model call, red = failed tool)</span></h2><div class="gantt">${lanes}</div><div class="axis">${[0,.25,.5,.75,1].map(f=>`<span>${T(w*f)}</span>`).join('')}</div>
- <div class="cols" style="margin-top:14px"><div><h2>Tools in this task</h2>${tbl('dt',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>r[1],v:r=>r[1]},{h:'Err',n:1,f:r=>r[2],v:r=>r[2]},{h:'Total',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]}],trows,20)}</div>
+ <div class="cols" style="margin-top:14px"><div><h2>Tools in this task</h2>${tbl('dt',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Calls',n:1,f:r=>esc(r[1]),v:r=>r[1]},{h:'Err',n:1,f:r=>esc(r[2]),v:r=>r[2]},{h:'Total',n:1,d:1,f:r=>T(r[3]),v:r=>r[3]},{h:'Max',n:1,f:r=>T(r[4]),v:r=>r[4]}],trows,20)}</div>
  <div><h2>Tool calls, slowest first</h2>${tbl('ds',[{h:'Tool',f:r=>esc(r[0]),v:r=>r[0]},{h:'Dur',n:1,f:r=>T(r[1]),v:r=>r[1]},{h:'Input',f:r=>`<div class="pr" style="max-width:300px">${esc(r[2])}</div>`,v:r=>r[2]}],t.slow,10)}
  <h2 style="margin-top:12px">Context size per turn</h2>${svg}<div class="s">peak ${N(t.ctx_max)} tokens</div></div></div>`}
 
