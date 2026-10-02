@@ -176,13 +176,17 @@ The report is one self-contained `.html` file: no server, no external assets.
 ### On-device AI (optional)
 
 If your browser ships a built-in language model, the Bottlenecks tab offers an **AI summary** of the findings: a
-headline, where the time and money go, and the fixes worth doing first. The model runs inside your browser on your
-computer, so it works offline and nothing from the report is sent anywhere. Browsers without the API never show it.
+headline, where the time and money go, and the fixes worth doing first. With the Prompt API there is also an
+**Ask AI** tab: chat about the sessions in view ("why was yesterday slow?", "what did the cache cost me?"). Each
+answer is grounded on the report's own numbers, cited tasks open on click, and *Data the model saw* shows exactly what
+it was given. The chat is kept in your browser's local storage until you clear it. The model runs inside your
+browser on your computer, so it works offline and nothing from the report is sent anywhere. Browsers without the API
+never show it.
 
 | Browser | What you get |
 |---|---|
-| Chrome 148+ (desktop) | Summary via the [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) |
-| Chrome 138–147, Edge | Summary via the [Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api); Edge's Prompt API is behind `edge://flags` → *Prompt API for on-device language model* |
+| Chrome 148+ (desktop) | Summary and Ask AI via the [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) |
+| Chrome 138–147, Edge | Summary via the [Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api); in Edge, enable `edge://flags` → *Prompt API for on-device language model* for Ask AI |
 | Others | Any browser that adds the same standard `LanguageModel` / `Summarizer` APIs, automatically |
 
 The first use asks the browser to download its model once (a few GB; Chrome needs about 22 GB of free disk and

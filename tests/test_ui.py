@@ -26,6 +26,12 @@ const __session = {
   measureContextUsage: async q => q.length / 4,
   clone: async () => __session, destroy() { __calls.push(['destroy']); },
   prompt: async (q, o) => { __calls.push(['prompt', q, o]); return window.__reply(q, o); },
+  append: async m => { __calls.push(['append', m]); },
+  addEventListener() {},
+  promptStreaming(q, o) {
+    __calls.push(['stream', q]);
+    return (async function* () { for (const c of window.__chunks(q)) yield c; })();
+  },
 };
 window.LanguageModel = {
   availability: async o => { __calls.push(['availability', o]); return 'AVAIL'; },
@@ -490,9 +496,74 @@ class TestClaudonUI(unittest.TestCase):
             tr.turn(("Edit", {"file_path": "/src/b.py"}, False), secs=50)
         self.open_bottlenecks(tr)
         self.assertIn("Summarizer API", self.page.locator("#ai h2").inner_text())
+        self.assertEqual(self.page.locator("#nav button").count(), 5)           # no chat without the Prompt API
         self.page.locator("#ai button").click()
         self.assertEqual(self.page.locator("#aitext").inner_text(), "* Approve less often.\n* Then fix Bash.")
         self.assertIn("Permission prompts held up", self.page.evaluate("__seen[0]"))
+
+    def chat_page(self, chunks):
+        """Ask AI tab over two tasks; the mocked model streams chunks(question)"""
+        tr = Transcript()
+        tr.prompt("cheap task")
+        tr.turn(("Read", {"file_path": "/a.py"}, False))
+        tr.prompt("costly task")
+        for _ in range(12):
+            tr.turn(("Bash", {"command": "make"}, False))
+        self.page.add_init_script(MOCK_LM.replace("AVAIL", "available") + f"window.__chunks = {chunks};")
+        self.page.goto(tr.report(self.tmp_path / "c").as_uri())
+        self.page.click("nav button:text-is('Ask AI')")
+        return self.page.evaluate("[...D.tasks].sort((x, y) => y.cost - x.cost)[0].id")
+
+    def ask(self, q):
+        self.page.fill("#q", q)
+        self.page.keyboard.press("Enter")
+        self.page.locator("#ask button", has_text="Ask").wait_for()          # Stop turns back into Ask when done
+
+    def test_chat_tab_only_with_prompt_api(self):
+        self.chat_page("q => ['ok']")
+        self.assertEqual(self.page.locator("#nav button").all_inner_texts()[-1], "Ask AI")
+        self.page.set_viewport_size({"width": 390, "height": 800})                 # six tabs scroll inside the nav, not the page
+        self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"), 390)
+
+    def test_chat_answers_with_cited_tasks_and_shows_its_data(self):
+        costly = self.chat_page("q => ['The most expensive is ', '[' + [...D.tasks].sort((x, y) => y.cost - x.cost)[0].id + ']', ', not [nope#9].']")
+        self.ask("Which task cost the most?")
+        answer = self.page.locator(".msg.a").last
+        self.assertIn("The most expensive is", answer.inner_text())
+        self.assertIn("[nope#9]", answer.inner_text())                       # invented ids stay plain text
+        chip = answer.locator(".chip")
+        self.assertEqual(chip.count(), 1)
+        self.assertEqual(chip.get_attribute("data-task"), costly)
+        data = json.loads(answer.locator("details pre").text_content())
+        self.assertEqual((data["ranked_by"], data["top_tasks"][0]["id"]), ("cost", costly))
+        chip.click()
+        self.assertIn("costly task", self.page.locator("#mbody").inner_text())
+        sent = next(c[1] for c in self.page.evaluate("__calls") if c[0] == "append")
+        self.assertIn("Report data for the current view", sent[0]["content"])
+
+    def test_chat_retrieval_follows_the_question(self):
+        self.chat_page("q => ['ok']")
+        ctx = self.page.evaluate("context('Which tools fail most, and in which tasks?', F)")
+        self.assertEqual(ctx["ranked_by"], "tool errors")
+        self.assertEqual({t["tool"] for t in ctx["tools"]}, {"Bash", "Read"})
+        ctx = self.page.evaluate("context('what happened in ' + D.tasks[0].id + ' ?', F)")
+        self.assertEqual(ctx["named_tasks"][0]["prompt"], "cheap task")
+
+    def test_chat_persists_across_reloads_until_cleared(self):
+        self.chat_page("q => ['Answer to: ' + q.split('Question: ')[1]]")
+        self.page.locator(".chip[data-q]").first.click()                       # a suggested question
+        self.page.locator(".msg.a", has_text="Answer to: What should I fix first?").wait_for()
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.assertEqual(self.page.locator(".msg").count(), 2)
+        self.ask("And then?")
+        history = next(c[1] for c in self.page.evaluate("__calls") if c[0] == "append")
+        self.assertEqual([m["role"] for m in history[2:]], ["user", "assistant"])   # earlier turns rebuilt into the session
+        self.page.click("[data-chat=clear]")
+        self.assertEqual(self.page.locator(".msg").count(), 0)
+        self.page.reload()
+        self.page.click("nav button:text-is('Ask AI')")
+        self.assertEqual(self.page.locator(".msg").count(), 0)
 
     def test_dark_mode_color_scheme(self):
         """Test theme dark mode CSS variable overrides for background and card colors."""

@@ -7,8 +7,8 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-feature-settings:"cv02","cv03","cv04","cv11","tnum"}
 header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 h1{font-size:16px;margin:0 8px 0 0}
-nav{display:inline-flex;background:var(--bg);padding:3px;border-radius:8px;border:1px solid var(--line);gap:2px}
-nav button{font:inherit;font-size:13px;font-weight:500;color:var(--mute);background:transparent;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all .15s ease}
+nav{display:inline-flex;background:var(--bg);padding:3px;border-radius:8px;border:1px solid var(--line);gap:2px;max-width:100%;overflow-x:auto}
+nav button{white-space:nowrap;font:inherit;font-size:13px;font-weight:500;color:var(--mute);background:transparent;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all .15s ease}
 nav button:hover{color:var(--fg);background:rgba(0,0,0,.04)}
 @media(prefers-color-scheme:dark){nav button:hover{background:rgba(255,255,255,.06)}}
 nav button.on{background:var(--model);color:#fff;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
@@ -31,7 +31,11 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.c{cursor:pointer
 .days{display:flex;align-items:flex-end;gap:2px;height:110px}.days div{flex:1;background:var(--model);min-width:2px;border-radius:2px 2px 0 0}
 .find{border-left:4px solid var(--tool);padding:8px 12px;margin:10px 0;background:var(--bg);border-radius:0 6px 6px 0}.find.hi{border-color:var(--err)}.find.info{border-color:var(--model)}
 .find .fh{display:flex;gap:12px;align-items:baseline;margin-bottom:2px}.find .fh b{flex:1}.imp{color:var(--mute);font-size:12px;white-space:nowrap}.fix{margin-top:4px}.find.flash{animation:flash 1.8s}@keyframes flash{0%,50%{outline:2px solid var(--model)}100%{outline:2px solid transparent}}
-#aitext{white-space:pre-line}#ai ol{margin:6px 0;padding-left:20px}#ai li{margin:3px 0}#ai a{color:var(--model)}.aierr{color:var(--err);margin-bottom:6px}.chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
+#aitext{white-space:pre-line}
+.chat #msgs{display:flex;flex-direction:column;gap:8px;margin:10px 0}.msg{padding:8px 12px;border-radius:10px;max-width:85%;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.u{align-self:flex-end;background:var(--model);color:#fff}.msg.a{align-self:flex-start;background:var(--bg);border:1px solid var(--line)}.msg details{white-space:normal;margin-top:4px}
+#ask{display:flex;gap:8px;margin:10px 0 6px}#ask textarea{flex:1;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 10px;resize:vertical}
+#ask button,#ai button{font:inherit;font-size:13px;color:#fff;background:var(--model);border:0;border-radius:6px;padding:5px 14px;cursor:pointer}.lnk{font:inherit;font-size:12px;color:var(--model);background:none;border:0;padding:0;cursor:pointer}#ai ol{margin:6px 0;padding-left:20px}#ai li{margin:3px 0}#ai a{color:var(--model)}.aierr{color:var(--err);margin-bottom:6px}.chip{display:inline-block;margin:4px 6px 0 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px;cursor:pointer;background:var(--card)}.chip:hover{border-color:var(--model)}
 #modal{position:fixed;inset:0;background:#0008;display:none;z-index:10;overflow:auto;padding:30px}#modal>div{background:var(--card);max-width:1200px;margin:auto;border-radius:12px;padding:20px;position:relative}
 #x{position:absolute;right:14px;top:10px;cursor:pointer;font-size:22px;line-height:1;color:var(--mute);background:none;border:0;padding:4px 8px;border-radius:6px}#x:hover{background:var(--bg);color:var(--text,inherit)}
 .gantt{position:relative;border:1px solid var(--line);border-radius:6px;margin:8px 0 4px;background:var(--bg)}.lane{position:relative;height:24px;border-bottom:1px dashed var(--line)}
@@ -62,7 +66,7 @@ const Q=(a,p)=>{if(!a.length)return 0;a=[...a].sort((x,y)=>x-y);return a[Math.mi
 const date=t=>new Date(t*1000).toISOString().slice(0,10);
 const sn=m=>m.replace('claude-','').replace(/-20\d{6}$/,'');
 const tabs=['Overview','Tasks','Tools','Models & thinking','Bottlenecks'];let cur,tab=0,sorts={},F=[];
-$('#nav').innerHTML=tabs.map((t,i)=>`<button role="tab" id="tab-${i}" data-t="${i}" aria-selected="${i===tab}" aria-controls="view">${t}</button>`).join('');
+const drawNav=()=>$('#nav').innerHTML=tabs.map((t,i)=>`<button role="tab" id="tab-${i}" data-t="${i}" aria-selected="${i===tab}" aria-controls="view">${t}</button>`).join('');drawNav();
 const projs=[...new Set(D.tasks.map(t=>t.proj))].sort();
 $('#fp').innerHTML='<option value="">All projects ('+projs.length+')</option>'+projs.map(p=>`<option>${esc(p)}</option>`).join('');
 function filt(){const p=$('#fp').value,q=$('#fq').value.toLowerCase();F=D.tasks.filter(t=>(!p||t.proj==p)&&(!q||(t.prompt+t.title).toLowerCase().includes(q)))}
@@ -228,7 +232,8 @@ const store={get:k=>{try{return JSON.parse(localStorage.getItem(RK+k))}catch{ret
 const engine=()=>AI.lm!='unavailable'?'lm':AI.sm!='unavailable'?'sm':'';
 async function aiDetect(){const probe=async(api,o)=>{try{return typeof api?.availability=='function'?await api.availability(o):'unavailable'}catch{return 'unavailable'}};
  [AI.lm,AI.sm]=await Promise.all([probe(self.LanguageModel,AIO),probe(self.Summarizer,SUMO)]);
- if(engine()&&views[tab]==bottlenecks)render()}
+ if(AI.lm!='unavailable'&&!views.includes(chatView)){tabs.push('Ask AI');views.push(chatView);drawNav();render()}   // chat needs the Prompt API
+ else if(engine()&&views[tab]==bottlenecks)render()}
 const monitor=m=>m.addEventListener('downloadprogress',e=>{AI.pct=e.loaded/(e.total||1);const b=$('#aipct');
  if(b){b.style.width=AI.pct*100+'%';$('#aipcttxt').textContent=P(AI.pct)}else if(views[tab]==bottlenecks)render()});
 const SYS='You are the analyst built into Claudon, a report on Claude Code sessions (Claude Code is an AI coding agent). You receive report data as JSON. '+
@@ -285,6 +290,75 @@ function aiCard(fs){const e=engine();if(!e)return '';const av=e=='lm'?AI.lm:AI.s
    `<div class="more">${btn('sum',av=='available'?'Summarize with on-device AI':av=='downloading'?'Continue the model download':'Enable on-device AI')}</div>`;
  return `<div class="card" id="ai"><h2>AI summary <span class="s">· on-device, ${e=='lm'?'Prompt API':'Summarizer API'}</span></h2>${body}</div>`}
 
+// ---- Ask AI: chat about the current view with the on-device model (Prompt API only) ----
+const CHAT={msgs:store.get('chat')||[],sess:null,scope:null,ctl:null,overflow:false,usage:null};
+const viewKey=()=>hash(JSON.stringify([$('#fp').value,$('#fq').value]));
+const saveChat=()=>store.set('chat',CHAT.msgs.slice(-50));
+const signals=t=>({approval_wait:t.approval_s?T(t.approval_s):undefined,cache_expired:t.cache_miss[0]||undefined,repeated_calls:t.dup_calls||undefined,
+ most_edited:t.churn.length?t.churn.map(c=>`${c[0]?base(c[0]):'file'} ×${c[1]}`).join(', '):undefined,failure_streak:t.err_streak>1?t.err_streak:undefined,interrupts:t.interrupts||undefined});
+const taskRow=(t,full)=>({id:t.id,project:t.proj,date:date(t.start),prompt:t.prompt.slice(0,full?300:100),wall:T(t.wall),cost:$$(t.cost),turns:t.calls,tool_calls:t.tools,
+ ...(full?{split:{model:P(t.model_s/t.wall),tools:P(t.tool_s/t.wall),subagents:P(t.agent_s/t.wall),your_input:P(t.user_s/t.wall),idle:P(t.wait_s/t.wall)},
+  thinking:T(t.think_s),peak_context:N(t.ctx_max),compactions:t.compacts.length,
+  top_tools:Object.entries(t.tool_stats).sort((x,y)=>y[1][2]-x[1][2]).slice(0,4).map(([k,v])=>`${k} ×${v[0]} (${v[1]} failed, ${T(v[2])})`),...signals(t)}:{})});
+// which slice of the data a question is about: named tasks, projects, tools, models, dates, and the metric to rank by
+const METRICS=[[/cost|expensive|spend|money|\$|price/,'cost',t=>t.cost,t=>$$(t.cost)],[/idle|wait|away/,'idle',t=>t.wait_s,t=>T(t.wait_s)],
+ [/approv|permission|prompt/,'approval wait',t=>t.approval_s,t=>T(t.approval_s)],[/think|reason|effort/,'thinking',t=>t.think_s,t=>T(t.think_s)],
+ [/error|fail|broke|retry/,'tool errors',t=>sum(Object.values(t.tool_stats),v=>v[1]),t=>sum(Object.values(t.tool_stats),v=>v[1])],
+ [/cache/,'cache re-spend',t=>t.cache_miss[2]+t.cost_mix[3],t=>$$(t.cache_miss[2]+t.cost_mix[3])],[/context|token|compact/,'peak context',t=>t.ctx_max,t=>N(t.ctx_max)],
+ [/turn|loop|round/,'turns',t=>t.calls,t=>t.calls],[/subagent|agent/,'subagent cost',t=>t.sub_cost,t=>$$(t.sub_cost)],[/repeat|re-?read|again/,'repeated calls',t=>t.dup_calls,t=>t.dup_calls],
+ [/edit|churn|rework|rewrite/,'edits to one file',t=>Math.max(0,...t.churn.map(c=>c[1])),t=>Math.max(0,...t.churn.map(c=>c[1]))],[/slow|long|time|duration/,'wall time',t=>t.wall,t=>T(t.wall)]];
+function context(q,F){const w=q.toLowerCase(),out={},now=Date.now()/1000,day=86400;
+ const named=F.filter(t=>w.includes(t.id.toLowerCase()));
+ const projs=[...new Set(F.map(t=>t.proj))].filter(p=>p&&p.length>2&&w.includes(p.toLowerCase()));
+ let L=projs.length?F.filter(t=>projs.includes(t.proj)):F,when='';
+ const sod=now-now%day;                                   // start of today (UTC, like the dates shown)
+ for(const[re,lbl,lo,hi]of[[/\btoday\b/,'today',sod,now],[/\byesterday\b/,'yesterday',sod-day,sod],[/this week|past week|last 7 days/,'last 7 days',now-7*day,now],
+  [/this month|last 30 days/,'last 30 days',now-30*day,now]])if(re.test(w)){when=lbl;L=L.filter(t=>t.start>=lo&&t.start<=hi);break}
+ if(L!==F){const a=A(L);out.subset={selection:[...projs,when].filter(Boolean).join(', '),tasks:L.length,wall_time:T(a.wall),est_cost:$$(a.cost),
+  idle:P(a.wait/Math.max(1,a.wall)),turns:a.calls+a.sub}}
+ if(named.length)out.named_tasks=named.slice(0,3).map(t=>taskRow(t,1));
+ const m=METRICS.find(([re])=>re.test(w))||METRICS[0];
+ out.ranked_by=m[1];out.top_tasks=[...L].sort((x,y)=>m[2](y)-m[2](x)).slice(0,5).map(t=>({...taskRow(t,0),[m[1].replace(/ /g,'_')]:m[3](t)}));
+ const tools=toolAgg(L),hit=tools.filter(r=>r[0].length>2&&w.includes(r[0].toLowerCase()));
+ if(hit.length||/tool|bash|read|edit|grep|mcp/.test(w))out.tools=(hit.length?hit:tools.sort((x,y)=>y[3]-x[3]).slice(0,6)).map(r=>({tool:r[0],calls:r[1],errors:r[2],rejected:r[5],total_time:T(r[3]),max:T(r[4])}));
+ if(/model|opus|sonnet|haiku|fable/.test(w))out.models=modelAgg(L).sort((x,y)=>y[2]-x[2]).slice(0,5).map(r=>({model:sn(r[0]),calls:r[1],cost:$$(r[2]),avg_call:(r[5]/r[1]).toFixed(1)+'s',thinking:T(r[6])}));
+ if(L!==F)out.findings_for_subset=findings(L).filter(f=>f.sev!='info').slice(0,5).map(f=>plain(f.title));
+ return out}
+async function chatSession(){if(CHAT.sess&&CHAT.scope==viewKey())return CHAT.sess;
+ const base=lmBase(),hist=CHAT.msgs.slice(0,-2).filter(m=>!m.err&&m.text).slice(-6)   // earlier turns; the last two are the question being asked
+  .map(m=>({role:m.role,content:m.text.slice(0,600)}));                 // (lmBase() above: create() starts inside the user's click)
+ CHAT.sess?.destroy();CHAT.sess=null;
+ const s=await (await base).clone(),f=await fit(s,l=>`Report data for the current view (JSON):\n${JSON.stringify(facts(F,findings(F),l))}`);
+ await s.append([{role:'user',content:f},{role:'assistant',content:'Understood. I will answer from this report data only.'},...hist]);
+ s.addEventListener?.('contextoverflow',()=>{CHAT.overflow=true});
+ Object.assign(CHAT,{sess:s,scope:viewKey(),overflow:false});return s}
+async function ask(q){q=q.trim();if(!q||CHAT.ctl)return;const ctl=CHAT.ctl=new AbortController(),data=context(q,F);
+ CHAT.msgs.push({role:'user',text:q});const a={role:'assistant',text:'',data:JSON.stringify(data,null,1)};CHAT.msgs.push(a);render();
+ try{const s=await chatSession();
+  for await(const c of s.promptStreaming(`Data for this question (JSON):\n${JSON.stringify(data)}\n\nQuestion: ${q}`,{signal:ctl.signal})){
+   a.text+=c;const el=$('#m'+(CHAT.msgs.length-1));if(el)el.innerHTML=fmtAnswer(a.text)}
+  CHAT.usage=s.contextWindow?s.contextUsage/s.contextWindow:null}
+ catch(e){if(e.name!='AbortError'){a.err=1;a.text=e.name=='NotAllowedError'?'The browser wants a click to start the model; ask again.':`The on-device model failed: ${e.message||e.name||e}`}
+  else if(!a.text)a.text='(stopped)'}
+ CHAT.ctl=null;saveChat();render();$('#q')?.focus()}
+// model text -> escaped HTML; [task ids] it cites become chips, but only for tasks that exist
+const fmtAnswer=s=>esc(s).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/\[([^\]\s]+#\d+)\]/g,(m,id)=>D.tasks.some(t=>t.id==id)?chip(id):m);
+function chatView(){const fs=findings(F),top=[...F].sort((x,y)=>y.cost-x.cost)[0],projs=[...new Set(F.map(t=>t.proj))];
+ const sugg=['What should I fix first?',`Why did [${top.id}] cost so much?`,'Where does my idle time come from?','Which tools fail most often, and why does it matter?',
+  projs.length>1?`Which tasks in ${projs[0]} were slowest?`:'Which tasks were slowest this week?',fs.some(f=>f.key=='cache-expiry')?'How much did expired caches cost me?':'How could I spend less?'];
+ const msgs=CHAT.msgs.map((m,i)=>m.role=='user'?`<div class="msg u">${esc(m.text)}</div>`:
+  `<div class="msg a${m.err?' aierr':''}"><div id="m${i}">${m.text?fmtAnswer(m.text):'<span class="s">Thinking…</span>'}</div>${m.data?`<details><summary class="s">Data the model saw</summary><pre class="pre">${esc(m.data)}</pre></details>`:''}</div>`).join('');
+ return `<div class="card chat"><h2>Ask about this report <span class="s">· on-device model · ${tn(F.length,'task','tasks')} in view</span></h2>
+ ${AI.lm=='available'?'':'<div class="s">Your first question asks the browser to download its built-in model once (a few GB). After that it runs on this computer, offline too; nothing is sent anywhere.</div>'}
+ <div id="msgs">${msgs||'<div class="s">Ask anything about the sessions in view. Answers use the numbers in this report; cited tasks become clickable.</div>'}</div>
+ ${CHAT.overflow?'<div class="aierr">The conversation no longer fits in the model\'s memory; older messages are being forgotten. Clear the chat to start fresh.</div>':''}
+ ${CHAT.ctl?'':`<div>${sugg.map(q=>`<span class="chip" data-q="${esc(q)}">${esc(q)}</span>`).join('')}</div>`}
+ <form id="ask"><textarea id="q" rows="2" aria-label="Question" placeholder="e.g. Why was yesterday slow? (Enter to send, Shift+Enter for a new line)" ${CHAT.ctl?'disabled':''}></textarea>
+ ${CHAT.ctl?'<button type="button" data-chat="stop">Stop</button>':'<button>Ask</button>'}</form>
+ <div class="s">${CHAT.usage!=null?`Model memory ${P(CHAT.usage)} used · `:''}${CHAT.msgs.length?'<button class="lnk" data-chat="clear">Clear chat</button> · ':''}Answers come from your browser's model and can be wrong; check the linked tasks.</div></div>`}
+document.addEventListener('submit',e=>{if(e.target.id=='ask'){e.preventDefault();ask($('#q').value)}});
+document.addEventListener('keydown',e=>{if(e.target.id=='q'&&e.key=='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();ask(e.target.value)}});
+
 function detail(i){const t=D.tasks[i],w=t.wall,pc=x=>(x/w*100).toFixed(3)+'%';
  const sig=[t.approval_s?`approval waits ${T(t.approval_s)}`:'',t.cache_miss[0]?`cache expired ${t.cache_miss[0]}× (${$$(t.cache_miss[2])} re-written)`:'',t.dup_calls?`${t.dup_calls} repeated reads/searches`:'',
   t.churn.length?`most edited: ${t.churn.map(c=>(c[0]?base(c[0]):'file')+' ×'+c[1]).join(', ')}`:'',t.err_streak>1?`${t.err_streak} tool failures in a row`:'',t.interrupts?tn(t.interrupts,'interrupt','interrupts'):''].filter(Boolean);
@@ -315,7 +389,9 @@ $('#foot').innerHTML=`<div class="meta">Generated ${esc(new Date(D.generated).to
  </div>
  <details><summary>Rates used ($ per million tokens; the longest key contained in the model name wins)</summary>
   <table><tr><th>Model key</th><th class="n">Input</th><th class="n">Output</th><th class="n">Cache read</th><th class="n">Cache write 5m</th><th class="n">Cache write 1h</th></tr>${rates}</table></details>`;
-document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task],[data-more],[data-ai],[data-f]');if(!el)return;
+document.addEventListener('click',e=>{const el=e.target.closest('[data-t],[data-s],[data-task],[data-more],[data-ai],[data-f],[data-q],[data-chat]');if(!el)return;
+ if(el.dataset.q){ask(el.dataset.q);return}
+ if(el.dataset.chat){if(el.dataset.chat=='stop')CHAT.ctl?.abort();else{CHAT.ctl?.abort();CHAT.msgs=[];CHAT.sess?.destroy();Object.assign(CHAT,{sess:null,overflow:false,usage:null});store.del('chat');render()}return}
  if(el.dataset.ai){el.dataset.ai=='stop'?AI.ctl?.abort():aiSummarize();return}
  if(el.dataset.f){e.preventDefault();const f=document.getElementById('f-'+el.dataset.f);if(f){f.scrollIntoView({behavior:'smooth',block:'center'});f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
  const modal=()=>{if(cur>=0&&$('#modal').style.display=='block')$('#mbody').innerHTML=detail(cur)};
