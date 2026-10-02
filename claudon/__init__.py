@@ -1,6 +1,6 @@
 """Claudon - Claude Code session analytics -> self-contained HTML dashboard."""
 
-__version__ = '0.2.1'  # x-release-please-version
+__version__ = '0.3.0'  # x-release-please-version
 
 from .cli import main                        # after __version__: cli imports it
 from .discover import build                 # public API, also called by wasm/worker.js
