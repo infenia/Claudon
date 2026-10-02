@@ -19,7 +19,7 @@ uvx claudon --open
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo-dark.webp">
-  <img src="docs/assets/demo-light.webp" alt="Claudon dashboard tour: overview, tasks, tools, models and bottlenecks" width="860">
+  <img loading="lazy" decoding="async" src="docs/assets/demo-light.webp" alt="Claudon dashboard tour: overview, tasks, tools, models and bottlenecks" width="860">
 </picture>
 
 <sub>Redacted sample. Your own sessions stay on your machine.</sub>
