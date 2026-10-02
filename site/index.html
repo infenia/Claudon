@@ -18,7 +18,9 @@ fetch('README.md').then(r=>r.text()).then(t=>{
   el.innerHTML=marked.parse(t);
   const cta='<p class="cta"><a class="open" href="app/">▶ Try it in your browser — no install</a></p>',pre=el.querySelector('pre');
   pre?pre.insertAdjacentHTML('afterend',cta):el.insertAdjacentHTML('afterbegin',cta);
-  el.querySelectorAll('picture source').forEach(s=>s.media='all'); // site is dark-only
+  el.querySelectorAll('picture').forEach(p=>{ // site is dark-only: lazy mp4 instead of the README's webp
+    const v=document.createElement('video');v.src='docs/assets/demo-dark.mp4';v.muted=v.loop=v.playsInline=true;v.preload='none';v.width=860;v.style.maxWidth='100%';
+    p.replaceWith(v);new IntersectionObserver((e,o)=>e[0].isIntersecting&&(v.play(),o.disconnect())).observe(v)});
   el.querySelectorAll('a[href]').forEach(a=>{const h=a.getAttribute('href');
     if(h.startsWith('http')||h.startsWith('#')||h.startsWith('app/'))return;
     a.href=h.replace(/^\.?\/?/,GH)});
